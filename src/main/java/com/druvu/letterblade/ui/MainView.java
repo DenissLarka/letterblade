@@ -71,6 +71,9 @@ public final class MainView {
 
     private static final double BUTTON_SIZE = 42;
 
+    private static final String DROP_HINT = "Drop a .msg file here or use Open";
+    private static final String NO_BODY = "(no message body)";
+
     private final FxExec exec;
     private final MsgService msgService;
     private final Sanitizer sanitizer;
@@ -106,7 +109,7 @@ public final class MainView {
     private final HBox blockedBar = buildBlockedBar();
 
     // body surface
-    private final Label placeholder = new Label("Drop a .msg file here or use Open");
+    private final Label placeholder = new Label(DROP_HINT);
     private final WebView webView = new WebView();
     private final WebEngine webEngine = webView.getEngine();
     private final TextArea textArea = new TextArea();
@@ -142,6 +145,7 @@ public final class MainView {
 
         wireToolbar();
         buildHeaderState();
+        assignNodeIds();
 
         root.setTop(new VBox(buildToolbar(), buildHeader(), attachmentsRow, blockedBar));
         root.setCenter(bodyStack);
@@ -260,6 +264,14 @@ public final class MainView {
         if (currentMessage == null) {
             return;
         }
+        // A message with no body at all: show a placeholder instead of an empty WebView/TextArea (no crash).
+        if (isBlank(currentMessage.bodyHtml()) && currentMessage.plainText().isBlank()) {
+            updateBlockedBar(0); // an empty body has no remote images; clear any bar left by a previous message
+            placeholder.setText(NO_BODY);
+            showBody(placeholder);
+            selectAllButton.setDisable(true);
+            return;
+        }
         if (plainToggle.isSelected()) {
             textArea.setText(currentMessage.plainText());
             showBody(textArea);
@@ -290,8 +302,11 @@ public final class MainView {
     }
 
     private void updateHeader(ParsedMessage message) {
-        subjectLabel.setText(
-                isBlank(message.subject()) ? "(no subject)" : message.subject().strip());
+        final boolean hasSubject = !isBlank(message.subject());
+        final String subject = hasSubject ? message.subject().strip() : "(no subject)";
+        subjectLabel.setText(subject);
+        // Long subjects ellipsize on one line (see buildHeader); the tooltip carries the full text.
+        subjectLabel.setTooltip(hasSubject ? new Tooltip(subject) : null);
         fromValue.setText(formatFrom(message.fromName(), message.fromEmail()));
         setRow(toRow, toValue, message.displayTo());
         setRow(ccRow, ccValue, message.displayCc());
@@ -448,10 +463,22 @@ public final class MainView {
 
     private VBox buildHeader() {
         subjectLabel.setStyle("-fx-font-size: 15px; -fx-font-weight: bold;");
-        subjectLabel.setWrapText(true);
+        // One line with an ellipsis when too long (default Label overflow); the full subject is in the tooltip.
+        subjectLabel.setWrapText(false);
         final VBox header = new VBox(4, subjectLabel, fieldRow("From", fromValue), toRow, ccRow, dateRow);
         header.setPadding(new Insets(8, 12, 8, 12));
         return header;
+    }
+
+    /** Stable node ids so headless UI tests can look nodes up; no effect on behaviour. */
+    private void assignNodeIds() {
+        subjectLabel.setId("subject");
+        attachmentsRow.setId("attachmentsRow");
+        blockedBar.setId("blockedBar");
+        placeholder.setId("bodyPlaceholder");
+        toRow.setId("toRow");
+        ccRow.setId("ccRow");
+        dateRow.setId("dateRow");
     }
 
     private FlowPane buildAttachmentsRow() {

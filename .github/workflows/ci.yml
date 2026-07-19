@@ -1,0 +1,51 @@
+# Builds and verifies Letterblade on every push to main and on every pull request.
+# This is the gate that catches breakage (e.g. Renovate dependency bumps) before it
+# lands on main; there are no publish workflows yet (distribution is a later phase).
+#
+# JDK 25 with JavaFX bundled (Azul Zulu 'jdk+fx'): Letterblade resolves the javafx.*
+# modules from the JDK and has no org.openjfx dependencies, mirroring the local build.
+#
+# druvu-lib-fx (com.druvu:druvu-lib-fx:1.0.0-SNAPSHOT) is not published to any Maven
+# repository yet, so it is checked out and installed from source before the main build.
+# Replace that step with a normal dependency once it is published to GitHub Packages.
+#
+# The headless JavaFX UI tests start the real toolkit (Platform.startup), so the verify
+# step runs under xvfb to give it a virtual display (no windows are ever shown). xvfb is
+# preinstalled on GitHub's ubuntu-latest image.
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out letterblade
+        uses: actions/checkout@v7
+
+      - name: Check out druvu-lib-fx (unpublished dependency)
+        uses: actions/checkout@v7
+        with:
+          repository: DenissLarka/druvu-lib-fx
+          ref: main
+          path: druvu-lib-fx
+
+      - name: Set up JDK 25 (Zulu, JavaFX bundled)
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'zulu'
+          java-package: 'jdk+fx'
+          cache: 'maven'
+
+      - name: Install druvu-lib-fx to the local repository
+        run: mvn -B -f druvu-lib-fx/pom.xml install -DskipTests
+
+      - name: Build and verify
+        run: xvfb-run -a mvn -B verify
