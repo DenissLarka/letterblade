@@ -35,7 +35,24 @@ public final class MsgService {
             // on a non-OLE2 file, a malformed structure, etc. - is normalised to one checked type.
             throw new MsgParseException("Not a readable Outlook .msg file: " + file.getName(), e);
         }
+        return map(msg);
+    }
 
+    /**
+     * Builds the view-model for an embedded (nested) Outlook message. The parser already produced the
+     * {@link OutlookMessage} while reading the enclosing file, so this reads no bytes and cannot fail the way
+     * {@link #parse(File)} can - hence no checked exception.
+     *
+     * @param embedded a nested-message attachment from an already-parsed {@link ParsedMessage#embeddedMessages()}
+     * @return the embedded message's own view-model
+     */
+    public ParsedMessage parseEmbedded(OutlookMsgAttachment embedded) {
+        Objects.requireNonNull(embedded, "embedded");
+        return map(embedded.getOutlookMessage());
+    }
+
+    /** Maps a parser {@link OutlookMessage} - whether top-level or nested - to the immutable {@link ParsedMessage}. */
+    private static ParsedMessage map(OutlookMessage msg) {
         final BodyView body = deriveBody(msg.getBodyHTML(), msg.getConvertedBodyHTML(), msg.getBodyText());
 
         final List<OutlookMsgAttachment> embedded = msg.getOutlookAttachments().stream()

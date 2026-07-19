@@ -1,6 +1,7 @@
 package com.druvu.letterblade;
 
 import com.druvu.letterblade.msg.MsgService;
+import com.druvu.letterblade.msg.ParsedMessage;
 import com.druvu.letterblade.render.Sanitizer;
 import com.druvu.letterblade.ui.MainView;
 import com.druvu.lib.fx.bus.FxBus;
@@ -31,12 +32,12 @@ public final class LetterbladeApp extends Application {
     private final FxBus bus = new FxBus();
 
     private final FxExec exec = new FxExec(bus);
-    private final Prefs prefs = Prefs.in(AppHome.of("letterblade"));
+    private final AppHome home = AppHome.of("letterblade");
+    private final Prefs prefs = Prefs.in(home);
     private final MsgService msgService = new MsgService();
     private final Sanitizer sanitizer = new Sanitizer();
 
     private StatusBarModel statusBarModel;
-    private Notifications notifications;
 
     public static void main(String[] args) {
         launch(args);
@@ -45,10 +46,9 @@ public final class LetterbladeApp extends Application {
     @Override
     public void start(Stage stage) {
         FxThreads.requireFx();
-        notifications = new Notifications(stage);
         statusBarModel = new StatusBarModel(bus);
 
-        final MainView view = new MainView(exec, msgService, sanitizer, notifications, statusBarModel, stage::setTitle);
+        final MainView view = newView(stage);
         final Scene scene = new Scene(view.node(), 900, 640);
         view.installDragAndDrop(scene);
 
@@ -65,11 +65,42 @@ public final class LetterbladeApp extends Application {
         }
     }
 
+    /**
+     * Builds a viewer wired to the shared collaborators, its title bound to {@code stage} and able to spawn siblings.
+     * Each window gets its own {@link Notifications} bound to its own stage - so toasts anchor to the window that
+     * produced them - and it is closed when the window hides.
+     */
+    private MainView newView(Stage stage) {
+        final Notifications windowNotifications = new Notifications(stage);
+        stage.setOnHidden(event -> windowNotifications.close());
+        return new MainView(
+                exec,
+                msgService,
+                sanitizer,
+                windowNotifications,
+                statusBarModel,
+                home,
+                stage::setTitle,
+                this::openInNewWindow);
+    }
+
+    /**
+     * Opens an already-parsed message (an embedded {@code .msg}) in its own window, reusing the full viewer component
+     * so a nested message behaves exactly like a top-level one - including its own attachments and any further nesting.
+     */
+    private void openInNewWindow(ParsedMessage message) {
+        final Stage stage = new Stage();
+        final MainView view = newView(stage);
+        final Scene scene = new Scene(view.node(), 900, 640);
+        view.installDragAndDrop(scene);
+        stage.setScene(scene);
+        view.showMessage(message);
+        stage.show();
+    }
+
     @Override
     public void stop() {
-        if (notifications != null) {
-            notifications.close();
-        }
+        // Each window's Notifications is closed by its own stage's onHidden handler (see newView).
         if (statusBarModel != null) {
             statusBarModel.close();
         }

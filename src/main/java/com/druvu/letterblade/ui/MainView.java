@@ -6,9 +6,13 @@ import com.druvu.letterblade.render.Sanitizer;
 import com.druvu.letterblade.render.Sanitizer.SafeHtml;
 import com.druvu.lib.fx.exec.FxExec;
 import com.druvu.lib.fx.notify.Notifications;
+import com.druvu.lib.fx.prefs.AppHome;
 import com.druvu.lib.fx.status.StatusBarModel;
 import com.druvu.lib.fx.util.FxThreads;
+import java.awt.Desktop;
 import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
@@ -22,7 +26,10 @@ import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.Control;
+import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.Separator;
 import javafx.scene.control.TextArea;
@@ -34,6 +41,8 @@ import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.Dragboard;
 import javafx.scene.input.TransferMode;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
@@ -41,6 +50,9 @@ import javafx.scene.layout.VBox;
 import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
 import javafx.stage.FileChooser;
+import javafx.stage.Window;
+import org.simplejavamail.outlookmessageparser.model.OutlookFileAttachment;
+import org.simplejavamail.outlookmessageparser.model.OutlookMsgAttachment;
 
 /**
  * Letterblade's main window content and its controller: toolbar, envelope header, blocked-content bar, body surface
@@ -63,7 +75,9 @@ public final class MainView {
     private final MsgService msgService;
     private final Sanitizer sanitizer;
     private final Notifications notifications;
+    private final AppHome appHome;
     private final Consumer<String> titleUpdater;
+    private final Consumer<ParsedMessage> childWindowOpener;
 
     private final BorderPane root = new BorderPane();
 
@@ -82,6 +96,9 @@ public final class MainView {
     private final HBox toRow = fieldRow("To", toValue);
     private final HBox ccRow = fieldRow("Cc", ccValue);
     private final HBox dateRow = fieldRow("Date", dateValue);
+
+    // attachment chips (files + embedded messages), hidden when the message has none
+    private final FlowPane attachmentsRow = buildAttachmentsRow();
 
     // blocked-content bar
     private final Label blockedLabel = new Label();
@@ -104,12 +121,16 @@ public final class MainView {
             Sanitizer sanitizer,
             Notifications notifications,
             StatusBarModel statusBarModel,
-            Consumer<String> titleUpdater) {
+            AppHome appHome,
+            Consumer<String> titleUpdater,
+            Consumer<ParsedMessage> childWindowOpener) {
         this.exec = Objects.requireNonNull(exec, "exec");
         this.msgService = Objects.requireNonNull(msgService, "msgService");
         this.sanitizer = Objects.requireNonNull(sanitizer, "sanitizer");
         this.notifications = Objects.requireNonNull(notifications, "notifications");
+        this.appHome = Objects.requireNonNull(appHome, "appHome");
         this.titleUpdater = Objects.requireNonNull(titleUpdater, "titleUpdater");
+        this.childWindowOpener = Objects.requireNonNull(childWindowOpener, "childWindowOpener");
         Objects.requireNonNull(statusBarModel, "statusBarModel");
 
         // Security invariant: JavaScript off, before any content is ever loaded.
@@ -122,7 +143,7 @@ public final class MainView {
         wireToolbar();
         buildHeaderState();
 
-        root.setTop(new VBox(buildToolbar(), buildHeader(), blockedBar));
+        root.setTop(new VBox(buildToolbar(), buildHeader(), attachmentsRow, blockedBar));
         root.setCenter(bodyStack);
         root.setBottom(buildStatusStrip(statusBarModel));
     }
@@ -212,17 +233,21 @@ public final class MainView {
         final FileChooser chooser = new FileChooser();
         chooser.setTitle("Open Outlook message");
         chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Outlook messages (*.msg)", "*.msg"));
-        final File file = chooser.showOpenDialog(
-                root.getScene() == null ? null : root.getScene().getWindow());
+        final File file = chooser.showOpenDialog(window());
         if (file != null) {
             openFile(file);
         }
     }
 
-    private void showMessage(ParsedMessage message) {
+    /**
+     * Shows an already-parsed message - the entry point shared by the open/CLI flow and by embedded-message windows.
+     * Resets to the default (no-remote) sanitize mode and the rendered view. Call on the FX thread.
+     */
+    public void showMessage(ParsedMessage message) {
         currentMessage = message;
         sanitizeMode = Sanitizer.Mode.DEFAULT;
         updateHeader(message);
+        updateAttachments(message);
         titleUpdater.accept(
                 isBlank(message.subject()) ? "Letterblade" : message.subject().strip() + " - Letterblade");
         copyButton.setDisable(false);
@@ -278,6 +303,130 @@ public final class MainView {
         }
     }
 
+    /** Rebuilds the chip row: one chip per real attachment, one per embedded message; hidden when there are none. */
+    private void updateAttachments(ParsedMessage message) {
+        attachmentsRow.getChildren().clear();
+        for (OutlookFileAttachment attachment : message.attachments()) {
+            attachmentsRow.getChildren().add(fileChip(attachment));
+        }
+        for (OutlookMsgAttachment embedded : message.embeddedMessages()) {
+            attachmentsRow.getChildren().add(embeddedChip(embedded));
+        }
+        final boolean any = !attachmentsRow.getChildren().isEmpty();
+        attachmentsRow.setVisible(any);
+        attachmentsRow.setManaged(any);
+    }
+
+    private Button fileChip(OutlookFileAttachment attachment) {
+        final String name = Attachments.displayName(
+                attachment.getLongFilename(), attachment.getFilename(), attachment.getExtension());
+        final Button chip =
+                new Button(name + " (" + Attachments.humanSize(attachment.getSize()) + ")", Icons.paperclip());
+        chip.setTooltip(new Tooltip("Save or open " + name));
+        chip.setOnAction(event -> showAttachmentDialog(attachment, name));
+        return chip;
+    }
+
+    private Button embeddedChip(OutlookMsgAttachment embedded) {
+        final String subject = embedded.getOutlookMessage().getSubject();
+        final Button chip = new Button(isBlank(subject) ? "(embedded message)" : subject.strip(), Icons.envelope());
+        chip.setTooltip(new Tooltip("Open embedded message in a new window"));
+        chip.setOnAction(event -> openEmbedded(embedded));
+        return chip;
+    }
+
+    private void openEmbedded(OutlookMsgAttachment embedded) {
+        try {
+            // The nested message is already in memory (parsed with the enclosing file), so mapping is a cheap,
+            // side-effect-free transform - safe to run on the FX thread.
+            childWindowOpener.accept(msgService.parseEmbedded(embedded));
+        } catch (RuntimeException ex) {
+            notifications.error("Could not open the embedded message");
+        }
+    }
+
+    /** Modal detail dialog for a file attachment: name, size, MIME, with Cancel / Save… / Open. */
+    private void showAttachmentDialog(OutlookFileAttachment attachment, String name) {
+        final Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Attachment");
+        dialog.setHeaderText(null);
+        final Window owner = window();
+        if (owner != null) {
+            dialog.initOwner(owner);
+        }
+
+        final ButtonType saveType = new ButtonType("Save…", ButtonBar.ButtonData.APPLY);
+        final ButtonType openType = new ButtonType("Open", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.CANCEL, saveType, openType);
+
+        final GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(6);
+        grid.setPadding(new Insets(10));
+        grid.addRow(0, boldLabel("File"), new Label(name));
+        grid.addRow(1, boldLabel("Size"), new Label(Attachments.humanSize(attachment.getSize())));
+        if (!isBlank(attachment.getMimeTag())) {
+            grid.addRow(2, boldLabel("Type"), new Label(attachment.getMimeTag().strip()));
+        }
+        dialog.getDialogPane().setContent(grid);
+        dialog.setResultConverter(button -> button);
+
+        dialog.showAndWait().ifPresent(button -> {
+            if (button == saveType) {
+                saveAttachment(attachment, name);
+            } else if (button == openType) {
+                openAttachment(attachment, name);
+            }
+        });
+    }
+
+    private void saveAttachment(OutlookFileAttachment attachment, String name) {
+        final FileChooser chooser = new FileChooser();
+        chooser.setTitle("Save attachment");
+        chooser.setInitialFileName(Attachments.safeFileName(name));
+        final File target = chooser.showSaveDialog(window());
+        if (target == null) {
+            return;
+        }
+        final byte[] data = attachment.getData();
+        exec.run("Saving " + name, () -> Files.write(target.toPath(), data))
+                .whenCompleteAsync(
+                        (ignored, error) -> {
+                            if (error == null) {
+                                notifications.success("Saved " + target.getName());
+                            } else {
+                                notifications.error("Could not save " + name);
+                            }
+                        },
+                        FxThreads.fxExecutor());
+    }
+
+    private void openAttachment(OutlookFileAttachment attachment, String name) {
+        if (!Desktop.isDesktopSupported()) {
+            notifications.warning("Opening attachments is not supported on this system");
+            return;
+        }
+        final byte[] data = attachment.getData();
+        final String safe = Attachments.safeFileName(name);
+        // Write to the app home, then hand off to the OS default app - never auto-opened, only on this explicit action.
+        exec.run("Opening " + name, () -> {
+                    final Path file = appHome.dir("attachments").resolve(safe);
+                    Files.write(file, data);
+                    Desktop.getDesktop().open(file.toFile());
+                })
+                .whenCompleteAsync(
+                        (ignored, error) -> {
+                            if (error != null) {
+                                notifications.error("Could not open " + name);
+                            }
+                        },
+                        FxThreads.fxExecutor());
+    }
+
+    private Window window() {
+        return root.getScene() == null ? null : root.getScene().getWindow();
+    }
+
     private void updateBlockedBar(int count) {
         final boolean show = count > 0;
         blockedBar.setVisible(show);
@@ -303,6 +452,14 @@ public final class MainView {
         final VBox header = new VBox(4, subjectLabel, fieldRow("From", fromValue), toRow, ccRow, dateRow);
         header.setPadding(new Insets(8, 12, 8, 12));
         return header;
+    }
+
+    private FlowPane buildAttachmentsRow() {
+        final FlowPane row = new FlowPane(8, 8);
+        row.setPadding(new Insets(0, 12, 8, 12));
+        row.setVisible(false);
+        row.setManaged(false);
+        return row;
     }
 
     private HBox buildBlockedBar() {
@@ -344,6 +501,12 @@ public final class MainView {
         if (show) {
             value.setText(text.strip());
         }
+    }
+
+    private static Label boldLabel(String text) {
+        final Label label = new Label(text);
+        label.setStyle("-fx-font-weight: bold;");
+        return label;
     }
 
     private static HBox fieldRow(String name, Label value) {

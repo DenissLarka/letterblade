@@ -74,6 +74,20 @@ public class MsgServiceTest {
     }
 
     @Test
+    public void parseEmbeddedMapsNestedMessageToItsOwnViewModel() throws Exception {
+        ParsedMessage outer = service.parse(fixture("nested-simple-mail.msg"));
+        assertThat(outer.embeddedMessages()).hasSize(1);
+
+        ParsedMessage inner = service.parseEmbedded(outer.embeddedMessages().get(0));
+        assertThat(inner.subject()).isEqualTo("outlookmsg2html Testmail");
+        assertThat(inner.fromName()).isEqualTo("REISINGER Emanuel");
+        assertThat(inner.fromEmail()).isEqualTo("Emanuel.Reisinger@cargonet.software");
+        assertThat(inner.plainText()).isNotBlank();
+        assertThat(inner.attachments()).isEmpty();
+        assertThat(inner.embeddedMessages()).isEmpty();
+    }
+
+    @Test
     public void corruptFileThrowsCheckedException() throws Exception {
         Path notMsg = Files.createTempFile("letterblade-corrupt", ".msg");
         Files.writeString(notMsg, "this is plain text, not an OLE2 .msg document");

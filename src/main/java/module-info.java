@@ -6,6 +6,7 @@
  */
 module com.druvu.letterblade {
     requires com.druvu.lib.fx;
+    requires java.desktop; // java.awt.Desktop - open a saved attachment with the OS default app
     requires javafx.controls;
     requires javafx.web;
     requires org.simplejavamail.outlookmessageparser;
