@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+	<!-- Letterblade project-wide SpotBugs exclusions; keep every entry justified with a comment. -->
+
+	<!-- The ui package is JavaFX composition: it stores injected collaborators (exec, notifications,
+	     the parse/sanitize services) and hands back live scene-graph nodes. That IS the design, so
+	     EI "rep exposure" is meaningless noise here - the same stance druvu-lib-fx takes for its own
+	     example UI package. The msg/render packages keep these detectors active. -->
+	<Match>
+		<Package name="~com\.druvu\.letterblade\.ui.*"/>
+		<Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+	</Match>
+</FindBugsFilter>

@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>com.druvu</groupId>
+	<artifactId>letterblade</artifactId>
+	<version>1.0.0-SNAPSHOT</version>
+	<packaging>jar</packaging>
+
+	<name>DRUVU.COM / LETTERBLADE</name>
+	<description>Desktop viewer for Outlook .msg files - no Outlook required. A JavaFX application on druvu-lib-fx.</description>
+
+	<developers>
+		<developer>
+			<name>Deniss LARKA</name>
+			<email>deniss.larka@gmail.com</email>
+		</developer>
+	</developers>
+
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<java.version>25</java.version>
+
+		<!-- JavaFX comes from the JDK (Azul Zulu FX): there are deliberately NO org.openjfx
+		     dependencies - the app ships its JDK via the druvu install pipeline, so the fx modules
+		     are version-locked to the JDK. -->
+
+		<!-- application dependencies -->
+		<druvu-lib-fx.version>1.0.0-SNAPSHOT</druvu-lib-fx.version>
+		<outlook-message-parser.version>1.16.1</outlook-message-parser.version>
+		<jsoup.version>1.22.2</jsoup.version>
+		<slf4j.version>2.0.18</slf4j.version>
+
+		<!-- test -->
+		<testng.version>7.12.0</testng.version>
+		<assertj.version>3.27.7</assertj.version>
+
+		<!-- plugins -->
+		<maven-compiler-plugin.version>3.15.0</maven-compiler-plugin.version>
+		<maven-surefire-plugin.version>3.5.6</maven-surefire-plugin.version>
+		<maven-pmd-plugin.version>3.28.0</maven-pmd-plugin.version>
+		<spotbugs-maven-plugin.version>4.10.3.0</spotbugs-maven-plugin.version>
+		<javafx-maven-plugin.version>0.0.8</javafx-maven-plugin.version>
+		<asm.version>9.10.1</asm.version>
+	</properties>
+
+	<dependencies>
+
+		<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+		<!-- druvu JavaFX toolkit (consumed from local .m2 until the delivery-pipeline switch) -->
+		<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+		<dependency>
+			<groupId>com.druvu</groupId>
+			<artifactId>druvu-lib-fx</artifactId>
+			<version>${druvu-lib-fx.version}</version>
+		</dependency>
+
+		<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+		<!-- .msg PARSING -->
+		<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+		<dependency>
+			<groupId>org.simplejavamail</groupId>
+			<artifactId>outlook-message-parser</artifactId>
+			<version>${outlook-message-parser.version}</version>
+		</dependency>
+
+		<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+		<!-- HTML sanitize + cid-rewrite + html->text -->
+		<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+		<dependency>
+			<groupId>org.jsoup</groupId>
+			<artifactId>jsoup</artifactId>
+			<version>${jsoup.version}</version>
+		</dependency>
+
+		<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+		<!-- LOG - api at compile (lib-fx requires org.slf4j, provided/non-transitive), simple
+		     binding at runtime. Mirrors druvu-lib-fx-example. -->
+		<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+			<version>${slf4j.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-simple</artifactId>
+			<version>${slf4j.version}</version>
+			<scope>runtime</scope>
+		</dependency>
+
+		<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+		<!-- TEST - druvu-lib-fx uses TestNG + AssertJ, NOT JUnit -->
+		<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
+		<dependency>
+			<groupId>org.testng</groupId>
+			<artifactId>testng</artifactId>
+			<version>${testng.version}</version>
+			<scope>test</scope>
+			<exclusions>
+				<exclusion>
+					<groupId>org.slf4j</groupId>
+					<artifactId>slf4j-api</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.assertj</groupId>
+			<artifactId>assertj-core</artifactId>
+			<version>${assertj.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<!-- slf4j-simple is declared once at runtime scope above; runtime deps are on the test
+		     classpath too, so tests get a logging binding without a second declaration. -->
+	</dependencies>
+
+	<build>
+		<plugins>
+			<!-- maven-compiler-plugin: J25. No lombok annotation processor (lombok is not used here). -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>${maven-compiler-plugin.version}</version>
+				<configuration>
+					<source>${java.version}</source>
+					<target>${java.version}</target>
+					<release>${java.version}</release>
+					<debug>true</debug>
+					<showDeprecation>true</showDeprecation>
+					<showWarnings>true</showWarnings>
+					<compilerArgs>
+						<arg>-parameters</arg>
+					</compilerArgs>
+				</configuration>
+			</plugin>
+
+			<!-- maven-surefire-plugin -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>${maven-surefire-plugin.version}</version>
+				<configuration>
+					<!-- Run tests on the classpath, not the module-path: the JDK-bundled JavaFX
+					     system modules stay visible to unnamed-module test code. module-info.java is
+					     still validated during compilation. This setting is load-bearing. -->
+					<useModulePath>false</useModulePath>
+				</configuration>
+			</plugin>
+
+			<!-- spotbugs-maven-plugin -->
+			<plugin>
+				<groupId>com.github.spotbugs</groupId>
+				<artifactId>spotbugs-maven-plugin</artifactId>
+				<version>${spotbugs-maven-plugin.version}</version>
+				<dependencies>
+					<!-- updated asm to support J25 -->
+					<dependency>
+						<groupId>org.ow2.asm</groupId>
+						<artifactId>asm</artifactId>
+						<version>${asm.version}</version>
+					</dependency>
+				</dependencies>
+				<configuration>
+					<effort>Max</effort>
+					<threshold>Low</threshold>
+					<xmlOutput>true</xmlOutput>
+					<includeTests>false</includeTests>
+					<excludeFilterFile>${maven.multiModuleProjectDirectory}/_spotbug-filters/spotbug-exclude.xml</excludeFilterFile>
+				</configuration>
+				<executions>
+					<execution>
+						<goals>
+							<goal>check</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+
+			<!-- maven-pmd-plugin -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-pmd-plugin</artifactId>
+				<version>${maven-pmd-plugin.version}</version>
+				<dependencies>
+					<!-- updated asm to support J25 -->
+					<dependency>
+						<groupId>org.ow2.asm</groupId>
+						<artifactId>asm</artifactId>
+						<version>${asm.version}</version>
+					</dependency>
+				</dependencies>
+				<configuration>
+					<printFailingErrors>true</printFailingErrors>
+					<failurePriority>3</failurePriority>
+					<includeTests>true</includeTests>
+					<linkXRef>false</linkXRef>
+				</configuration>
+				<executions>
+					<execution>
+						<goals>
+							<goal>check</goal>
+							<goal>cpd-check</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+
+			<!-- javafx-maven-plugin: run only (mvn javafx:run). JavaFX modules come from the JDK. -->
+			<plugin>
+				<groupId>org.openjfx</groupId>
+				<artifactId>javafx-maven-plugin</artifactId>
+				<version>${javafx-maven-plugin.version}</version>
+				<configuration>
+					<mainClass>com.druvu.letterblade/com.druvu.letterblade.LetterbladeApp</mainClass>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>
