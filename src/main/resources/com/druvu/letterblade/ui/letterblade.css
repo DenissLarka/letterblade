@@ -1,0 +1,54 @@
+/*
+ * Letterblade's own styles, on top of the AtlantaFX theme that LetterbladeApp applies at start-up.
+ *
+ * These rules live in a stylesheet rather than in setStyle(...) for one concrete reason: a looked-up colour variable
+ * (-color-*) is NOT resolved inside an inline style. JavaFX parses the value literally and then fails to convert it,
+ * logging "String cannot be cast to Paint" - so the declaration is lost. Looked-up colours only work from a stylesheet.
+ *
+ * Every variable used here must exist in all seven FxThemes, because a failed lookup is not a fallback: JavaFX drops
+ * the declaration and paints nothing.
+ */
+
+/*
+ * The line under the title bar was NOT the toolbar and NOT macOS chrome - it was the menu bar.
+ *
+ * On macOS the menus move into the screen menu bar, but the MenuBar node stays in the scene graph (it has to: macOS
+ * only adopts a bar that is actually in the graph). Measured in the running app: it still occupies
+ * y 0..8, height 8.0, with the toolbar starting at y=8 - an empty 8px strip painting AtlantaFX's .menu-bar background
+ * and bottom border. That strip is the stray line a millimetre under the title bar. MainView collapses it on macOS.
+ *
+ * A bare MenuBar outside AtlantaFX reports height 0.0, which is why an isolated probe did not reproduce this - the
+ * height comes from the theme's .menu-bar padding.
+ */
+.menu-bar.system-menu-bar-host {
+    -fx-padding: 0;
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-min-height: 0;
+    -fx-pref-height: 0;
+    -fx-max-height: 0;
+}
+
+/*
+ * The toolbar keeps its 1px bottom separator (that one is wanted - it divides the header from the content), but takes
+ * the window's own background instead of AtlantaFX's -color-bg-subtle (#f6f8fa against a #ffffff title bar and body),
+ * so the header reads as one continuous surface.
+ *
+ * The two-layer trick is AtlantaFX's own: layer 1 paints the separator colour full-bleed, layer 2 paints the fill inset
+ * 1px from the bottom, leaving that 1px showing. Only the fill colour changes here, so the separator keeps working
+ * under every theme.
+ */
+.tool-bar {
+    -fx-background-color: -color-border-muted, -color-bg-default;
+    -fx-background-insets: 0, 0 0 1px 0;
+}
+
+/* The empty-window drop target: the conventional dashed frame around the invitation. */
+.drop-zone {
+    -fx-border-color: -color-border-default;
+    -fx-border-style: dashed;
+    -fx-border-width: 2;
+    -fx-border-radius: 12;
+    -fx-padding: 32 44 32 44;
+    -fx-text-fill: -color-fg-muted;
+}

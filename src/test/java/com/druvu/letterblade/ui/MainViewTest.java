@@ -11,6 +11,8 @@ import com.druvu.lib.fx.exec.FxExec;
 import com.druvu.lib.fx.notify.Notifications;
 import com.druvu.lib.fx.prefs.AppHome;
 import com.druvu.lib.fx.status.StatusBarModel;
+import com.druvu.lib.fx.theme.FxTheme;
+import com.druvu.lib.fx.theme.ThemeManager;
 import java.io.File;
 import java.time.Instant;
 import java.util.List;
@@ -18,8 +20,10 @@ import java.util.Map;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.layout.BorderStrokeStyle;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.Region;
+import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -35,6 +39,10 @@ public class MainViewTest {
     @BeforeClass
     public void startToolkit() {
         FxTestToolkit.ensureStarted();
+        // The app applies a theme before building any UI, so the tests must too - Letterblade's own stylesheet looks up
+        // AtlantaFX colour variables, and without a theme those lookups fail and the assertions below would be testing
+        // an arrangement that never ships.
+        FxTestToolkit.runAndWait(() -> new ThemeManager().apply(FxTheme.PRIMER_LIGHT));
     }
 
     // --- attachment / embedded chips ---
@@ -107,6 +115,97 @@ public class MainViewTest {
                 () -> view.showMessage(message("Empty", null, "", BodyBranch.TEXT_ONLY, "Bob <b@x>", "")));
         assertThat(FxTestToolkit.call(() -> row(view, "#blockedBar").isManaged()))
                 .isFalse();
+    }
+
+    // --- empty state ---
+
+    /**
+     * A window with no message must show only the drop hint. The envelope header used to stay in the layout with all
+     * its labels blank, which still painted the bold field name - so an untouched window read "From" over the hint.
+     */
+    @Test
+    public void freshWindowShowsNoEnvelopeHeader() {
+        MainView view = FxTestToolkit.call(this::newView);
+        FxTestToolkit.runAndWait(() -> view.node().applyCss());
+
+        Region header = row(view, "#envelopeHeader");
+        assertThat(FxTestToolkit.call(header::isVisible))
+                .as("envelope header on an empty window")
+                .isFalse();
+        assertThat(FxTestToolkit.call(header::isManaged))
+                .as("hidden header must not reserve layout space either")
+                .isFalse();
+        assertThat(FxTestToolkit.call(() -> row(view, "#fromRow").isVisible()))
+                .as("the From row is what users actually saw")
+                .isFalse();
+    }
+
+    /** The empty window must read as a drop target, which is what the dashed frame around the hint says. */
+    @Test
+    public void dropHintIsFramedAsADropTarget() {
+        MainView view = FxTestToolkit.call(this::newView);
+        FxTestToolkit.runAndWait(() -> view.node().applyCss());
+
+        Label hint = FxTestToolkit.call(() -> (Label) view.node().lookup("#bodyPlaceholder"));
+        assertThat(FxTestToolkit.call(hint::getText)).isEqualTo("Drop a .msg file here or use Open");
+        assertThat(FxTestToolkit.call(
+                        () -> hint.getBorder().getStrokes().getFirst().getTopStyle()))
+                .as("drop hint border")
+                .isEqualTo(BorderStrokeStyle.DASHED);
+    }
+
+    /**
+     * Proves the frame's colour is really resolved from the theme. Asserting it is merely non-null does not work - an
+     * unresolvable lookup leaves the border painted in a default colour, so the test passes while the theming is
+     * broken. Comparing two themes is what distinguishes them: a resolved variable changes, a dropped one cannot.
+     *
+     * <p>This is the check that catches putting the rule back in an inline style, where JavaFX does not resolve
+     * {@code -color-*} at all.
+     */
+    @Test
+    public void dropZoneColourFollowsTheTheme() {
+        MainView view = FxTestToolkit.call(this::newView);
+        Color light = borderColourUnder(view, FxTheme.PRIMER_LIGHT);
+        Color dark = borderColourUnder(view, FxTheme.PRIMER_DARK);
+        FxTestToolkit.runAndWait(() -> new ThemeManager().apply(FxTheme.PRIMER_LIGHT)); // JVM-global: put it back
+
+        assertThat(light).as("border colour under a light theme").isNotNull();
+        assertThat(dark).as("border colour under a dark theme").isNotNull();
+        assertThat(light).as("a resolved variable changes with the theme").isNotEqualTo(dark);
+    }
+
+    private static Color borderColourUnder(MainView view, FxTheme theme) {
+        return FxTestToolkit.call(() -> {
+            new ThemeManager().apply(theme);
+            view.node().applyCss();
+            Label hint = (Label) view.node().lookup("#bodyPlaceholder");
+            return (Color) hint.getBorder().getStrokes().getFirst().getTopStroke();
+        });
+    }
+
+    /**
+     * The same Label also says "(no message body)", and there the frame would be a lie - it describes the open message
+     * rather than inviting a drop.
+     */
+    @Test
+    public void noBodyNoticeIsNotFramed() {
+        MainView view = show(message("No body here", null, "", BodyBranch.TEXT_ONLY, "Alice <a@x>", ""));
+
+        Label hint = FxTestToolkit.call(() -> (Label) view.node().lookup("#bodyPlaceholder"));
+        assertThat(FxTestToolkit.call(hint::getText)).isEqualTo("(no message body)");
+        assertThat(FxTestToolkit.call(hint::getBorder))
+                .as("no-body notice border")
+                .isNull();
+    }
+
+    /** ...and it comes back with the message, From included - hiding it must not be a one-way trip. */
+    @Test
+    public void openingAMessageRevealsTheEnvelopeHeader() {
+        MainView view = show(message("Subject", "<p>body</p>", "body", BodyBranch.HTML, "to@example.com", ""));
+
+        assertThat(FxTestToolkit.call(() -> row(view, "#envelopeHeader").isVisible()))
+                .isTrue();
+        assertThat(FxTestToolkit.call(() -> row(view, "#fromRow").isVisible())).isTrue();
     }
 
     // --- helpers ---

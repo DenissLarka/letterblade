@@ -27,7 +27,10 @@
 		     are version-locked to the JDK. -->
 
 		<!-- application dependencies -->
-		<druvu-lib-fx.version>1.0.0-SNAPSHOT</druvu-lib-fx.version>
+		<!-- Tracks druvu-lib-fx's main branch, which CI installs from source (see .github/workflows/ci.yml).
+		     It must match the version on that branch or resolution fails: main bumped to 1.0.1-SNAPSHOT when
+		     v1.0.0 was released (2026-07-19), which is what had CI red until 2026-08-02. -->
+		<druvu-lib-fx.version>1.0.1-SNAPSHOT</druvu-lib-fx.version>
 		<outlook-message-parser.version>1.16.1</outlook-message-parser.version>
 		<jsoup.version>1.22.2</jsoup.version>
 		<slf4j.version>2.0.18</slf4j.version>
