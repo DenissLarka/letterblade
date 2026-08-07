@@ -31,7 +31,7 @@
 		     It must match the version on that branch or resolution fails: main bumped to 1.0.1-SNAPSHOT when
 		     v1.0.0 was released (2026-07-19), which is what had CI red until 2026-08-02. -->
 		<druvu-lib-fx.version>1.0.1-SNAPSHOT</druvu-lib-fx.version>
-		<outlook-message-parser.version>1.16.1</outlook-message-parser.version>
+		<outlook-message-parser.version>1.16.2</outlook-message-parser.version>
 		<jsoup.version>1.23.1</jsoup.version>
 		<slf4j.version>2.0.18</slf4j.version>
 
