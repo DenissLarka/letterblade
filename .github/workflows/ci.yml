@@ -5,13 +5,12 @@
 # JDK 25 with JavaFX bundled (Azul Zulu 'jdk+fx'): Letterblade resolves the javafx.*
 # modules from the JDK and has no org.openjfx dependencies, mirroring the local build.
 #
-# druvu-lib-fx is consumed as a SNAPSHOT built from source: it is checked out from its
-# main branch and installed before the main build. The version in pom.xml must therefore
-# match whatever main currently carries (today 1.0.1-SNAPSHOT) - a mismatch is a hard
-# resolution failure, which is what kept this workflow red from 2026-07-19 to 2026-08-02.
-#
-# A released version would come from GitHub Packages instead, which needs a <repository>
-# plus read:packages auth (Packages requires authentication even for public artifacts).
+# druvu-lib-fx is pinned to a RELEASED version (see druvu-lib-fx.version in pom.xml).
+# Locally it resolves from GitHub Packages, but Packages requires auth even for public
+# artifacts and this workflow carries none - so CI checks out the kit at the matching
+# release TAG and installs it from source. The tag below must match the pom's version;
+# a mismatch is a hard resolution failure (main-branch tracking caused exactly that,
+# red from 2026-07-19 to 2026-08-02, which is why this pins a tag and not main).
 # Maven Central is deliberately not an option: it was ruled out for druvu-lib-fx.
 #
 # The headless JavaFX UI tests start the real toolkit (Platform.startup), so the verify
@@ -34,11 +33,11 @@ jobs:
       - name: Check out letterblade
         uses: actions/checkout@v7
 
-      - name: Check out druvu-lib-fx (unpublished dependency)
+      - name: Check out druvu-lib-fx at the release tag (must match pom's druvu-lib-fx.version)
         uses: actions/checkout@v7
         with:
           repository: DenissLarka/druvu-lib-fx
-          ref: main
+          ref: v1.0.1
           path: druvu-lib-fx
 
       - name: Set up JDK 25 (Zulu, JavaFX bundled)

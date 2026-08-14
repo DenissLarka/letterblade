@@ -27,10 +27,11 @@
 		     are version-locked to the JDK. -->
 
 		<!-- application dependencies -->
-		<!-- Tracks druvu-lib-fx's main branch, which CI installs from source (see .github/workflows/ci.yml).
-		     It must match the version on that branch or resolution fails: main bumped to 1.0.1-SNAPSHOT when
-		     v1.0.0 was released (2026-07-19), which is what had CI red until 2026-08-02. -->
-		<druvu-lib-fx.version>1.0.1-SNAPSHOT</druvu-lib-fx.version>
+		<!-- Released version, resolved from GitHub Packages (auth required even for public artifacts;
+		     needs a 'github' server in settings.xml). CI has no such auth and instead checks out the
+		     matching kit tag and installs it from source - keep the ref in .github/workflows/ci.yml
+		     in step with this version. -->
+		<druvu-lib-fx.version>1.0.1</druvu-lib-fx.version>
 		<outlook-message-parser.version>1.16.2</outlook-message-parser.version>
 		<jsoup.version>1.23.1</jsoup.version>
 		<slf4j.version>2.0.18</slf4j.version>
@@ -49,6 +50,14 @@
 		<javafx-maven-plugin.version>0.0.8</javafx-maven-plugin.version>
 		<asm.version>9.10.1</asm.version>
 	</properties>
+
+	<repositories>
+		<repository>
+			<id>github</id>
+			<name>GitHub Packages (druvu-lib-fx)</name>
+			<url>https://maven.pkg.github.com/DenissLarka/druvu-lib-fx/</url>
+		</repository>
+	</repositories>
 
 	<dependencies>
 
@@ -136,6 +145,9 @@
 					<showWarnings>true</showWarnings>
 					<compilerArgs>
 						<arg>-parameters</arg>
+						<!-- Stamps the module descriptor: VersionExtractor reads it under jlink,
+						     where there is no jar manifest - without it the updater sees 0.0.0. -->
+						<arg>--module-version=${project.version}</arg>
 					</compilerArgs>
 				</configuration>
 			</plugin>
