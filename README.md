@@ -6,6 +6,8 @@
 
 **Open and read Outlook `.msg` files on macOS, Windows, and Linux — no Outlook required.**
 
+![Letterblade rendering an HTML newsletter with an inline image](docs/images/hero.png)
+
 Someone sends you a `.msg` file. You don't have Outlook — or you're on a Mac, or on Linux,
 where Outlook can't help you anyway. Letterblade opens the file and shows you the message the
 way it was meant to be read: formatting, inline images, attachments, the works.
@@ -58,6 +60,20 @@ Then:
 ```
 mvn javafx:run
 ```
+
+## Which direction next?
+
+Letterblade does one thing today: it opens `.msg` files and treats them with care. Where it
+goes from here is decided the honest way: by whoever turns up and asks. So, what do you want?
+[Open an issue](https://github.com/DenissLarka/letterblade/issues) (or 👍 an existing one) and
+say what you'd use it for:
+
+- **A message that didn't open, or didn't look right** — the most valuable report of all.
+  Describe the message rather than attaching it; mail is private, and yours stays that way.
+- **More formats** — `.eml`, mbox, or something more exotic.
+- **Doing more with a message** — search inside it, print it, save it as PDF or HTML.
+- **A dark theme.**
+- **Something that isn't on this list** — often the best kind.
 
 ## License
 
