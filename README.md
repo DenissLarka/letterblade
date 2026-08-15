@@ -7,9 +7,10 @@
 **Open and read Outlook `.msg` files on macOS, Windows, and Linux — no Outlook required.**
 
 [![Download for macOS](https://img.shields.io/badge/Download_for_macOS-.dmg-000000?logo=apple&logoColor=white)](https://github.com/DenissLarka/letterblade/releases/latest/download/Letterblade.dmg)
+[![Download for Windows](https://img.shields.io/badge/Download_for_Windows-.msix-0078D4?logo=windows&logoColor=white)](https://github.com/DenissLarka/letterblade/releases/latest/download/Letterblade.msix)
 [![All downloads](https://img.shields.io/badge/druvu.com-downloads-4147d5)](https://druvu.com/downloads/letterblade.html)
 
-Windows and Linux are in preparation.
+Linux is in preparation.
 
 ## What you get
 
