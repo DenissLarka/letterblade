@@ -183,7 +183,11 @@
 					<threshold>Low</threshold>
 					<xmlOutput>true</xmlOutput>
 					<includeTests>false</includeTests>
-					<excludeFilterFile>${maven.multiModuleProjectDirectory}/_spotbug-filters/spotbug-exclude.xml</excludeFilterFile>
+					<!-- project.basedir, not maven.multiModuleProjectDirectory: the latter is resolved by the
+					     Maven launcher from the WORKING directory, so `mvn -f <path>` from elsewhere points it
+					     at the wrong repo and the build dies on a missing filter file. This project is a
+					     single module, so its own basedir is the honest answer. -->
+					<excludeFilterFile>${project.basedir}/_spotbug-filters/spotbug-exclude.xml</excludeFilterFile>
 				</configuration>
 				<executions>
 					<execution>
