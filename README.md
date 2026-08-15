@@ -52,16 +52,6 @@ from source — watch this repository if you'd rather wait for the download.
 
 ### Building from source
 
-You need JDK 25 with JavaFX included (for example [Azul Zulu "JDK FX"](https://www.azul.com/downloads/?package=jdk-fx))
-and Maven 3.9+.
-
-One dependency (`com.druvu:druvu-lib-fx`) is published on GitHub Packages, which requires
-authentication even for public packages: add a GitHub personal access token with the
-`read:packages` scope to your Maven `settings.xml` for the `github` repository defined in the
-POM.
-
-Then:
-
 ```
 mvn javafx:run
 ```
