@@ -6,6 +6,12 @@
 
 **Open and read Outlook `.msg` files on macOS, Windows, and Linux — no Outlook required.**
 
+[![Download for macOS](https://img.shields.io/badge/Download_for_macOS-.dmg-000000?logo=apple&logoColor=white)](https://github.com/DenissLarka/letterblade/releases/latest/download/Letterblade.dmg)
+[![All downloads](https://img.shields.io/badge/druvu.com-downloads-4147d5)](https://druvu.com/downloads/letterblade.html)
+
+Signed and notarized by Apple; the Java runtime is bundled. Windows and Linux are in
+preparation — see [Getting Letterblade](#getting-letterblade).
+
 ![Letterblade rendering an HTML newsletter with an inline image](docs/images/hero.png)
 
 Someone sends you a `.msg` file. You don't have Outlook — or you're on a Mac, or on Linux,
