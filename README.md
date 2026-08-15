@@ -82,9 +82,9 @@ say what you'd use it for:
 
 ## License
 
-Apache-2.0. Letterblade stands on the shoulders of
-[outlook-message-parser](https://github.com/bbottema/outlook-message-parser) for reading the
-`.msg` format and [jsoup](https://jsoup.org/) for HTML sanitization.
+Apache-2.0. The heavy lifting of reading the `.msg` format is done by the excellent
+[outlook-message-parser](https://github.com/bbottema/outlook-message-parser); HTML
+sanitization is handled by [jsoup](https://jsoup.org/).
 
 ---
 
