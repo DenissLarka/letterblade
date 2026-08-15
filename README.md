@@ -9,7 +9,7 @@
 [![Download for macOS](https://img.shields.io/badge/Download_for_macOS-.dmg-000000?logo=apple&logoColor=white)](https://github.com/DenissLarka/letterblade/releases/latest/download/Letterblade.dmg)
 [![All downloads](https://img.shields.io/badge/druvu.com-downloads-4147d5)](https://druvu.com/downloads/letterblade.html)
 
-Windows and Linux are in preparation — see [Getting Letterblade](#getting-letterblade).
+Windows and Linux are in preparation.
 
 ![Letterblade rendering an HTML newsletter with an inline image](docs/images/hero.png)
 
@@ -41,21 +41,6 @@ behalf:
 - **Your mail stays on your machine.** Letterblade reads files locally; nothing is uploaded
   anywhere.
 
-## Getting Letterblade
-
-**macOS (Apple Silicon):** download the signed, notarized `.dmg` from the
-[latest release](https://github.com/DenissLarka/letterblade/releases/latest) — or see the
-[downloads page](https://druvu.com/downloads/letterblade.html) on druvu.com.
-
-Windows and Linux installers are in preparation; on those platforms Letterblade can be built
-from source — watch this repository if you'd rather wait for the download.
-
-### Building from source
-
-```
-mvn javafx:run
-```
-
 ## Which direction next?
 
 Letterblade does one thing today: it opens `.msg` files and treats them with care. Where it
@@ -75,6 +60,12 @@ say what you'd use it for:
 Apache-2.0. The heavy lifting of reading the `.msg` format is done by the excellent
 [outlook-message-parser](https://github.com/bbottema/outlook-message-parser); HTML
 sanitization is handled by [jsoup](https://jsoup.org/).
+
+## Building from source
+
+```
+mvn javafx:run
+```
 
 ---
 
