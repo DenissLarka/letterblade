@@ -11,13 +11,11 @@
 
 Windows and Linux are in preparation.
 
-![Letterblade rendering an HTML newsletter with an inline image](docs/images/hero.png)
+## What you get
 
 Someone sends you a `.msg` file. You don't have Outlook — you're on a Mac, on Linux, or you
 simply never installed it. Letterblade opens the file and shows you the message the
 way it was meant to be read: formatting, inline images, attachments, the works.
-
-## What you get
 
 - **Open it your way.** Drop a `.msg` file onto the window, or use File → Open.
 - **The message as intended.** HTML mail renders with its formatting and inline images;
@@ -28,6 +26,8 @@ way it was meant to be read: formatting, inline images, attachments, the works.
 - **Messages inside messages.** A forwarded message attached as `.msg` opens in its own window,
   attachments and all.
 - **Copy that works.** Select all and copy give you clean text from the message itself.
+
+![Letterblade rendering an HTML newsletter with an inline image](docs/images/hero.png)
 
 ## Private by default
 
@@ -55,17 +55,17 @@ say what you'd use it for:
 - **A dark theme.**
 - **Something that isn't on this list** — often the best kind.
 
-## License
-
-Apache-2.0. The heavy lifting of reading the `.msg` format is done by the excellent
-[outlook-message-parser](https://github.com/bbottema/outlook-message-parser); HTML
-sanitization is handled by [jsoup](https://jsoup.org/).
-
 ## Building from source
 
 ```
 mvn javafx:run
 ```
+
+## License
+
+Apache-2.0. The heavy lifting of reading the `.msg` format is done by the excellent
+[outlook-message-parser](https://github.com/bbottema/outlook-message-parser); HTML
+sanitization is handled by [jsoup](https://jsoup.org/).
 
 ---
 
