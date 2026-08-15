@@ -14,8 +14,8 @@ preparation — see [Getting Letterblade](#getting-letterblade).
 
 ![Letterblade rendering an HTML newsletter with an inline image](docs/images/hero.png)
 
-Someone sends you a `.msg` file. You don't have Outlook — or you're on a Mac, or on Linux,
-where Outlook can't help you anyway. Letterblade opens the file and shows you the message the
+Someone sends you a `.msg` file. You don't have Outlook — you're on a Mac, on Linux, or you
+simply never installed it. Letterblade opens the file and shows you the message the
 way it was meant to be read: formatting, inline images, attachments, the works.
 
 ## What you get
