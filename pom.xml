@@ -18,6 +18,18 @@
 		</developer>
 	</developers>
 
+	<!-- letterblade-dist bundles this artifact into the installer images, so it must exist as one
+	     canonical binary per release rather than being rebuilt on each dist box (house rule
+	     2026-08-16). Published by .github/workflows/maven-github-publish.yml on release; v1.0.0 was
+	     published by hand from its tag, after the fact. -->
+	<distributionManagement>
+		<repository>
+			<id>github</id>
+			<name>GitHub Packages</name>
+			<url>https://maven.pkg.github.com/DenissLarka/letterblade/</url>
+		</repository>
+	</distributionManagement>
+
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<java.version>25</java.version>
