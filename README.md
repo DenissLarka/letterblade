@@ -8,9 +8,10 @@
 
 [![Download for macOS](https://img.shields.io/badge/Download_for_macOS-.dmg-000000?logo=apple&logoColor=white)](https://github.com/DenissLarka/letterblade/releases/latest/download/Letterblade.dmg)
 [![Download for Windows](https://img.shields.io/badge/Download_for_Windows-.msix-0078D4?logo=windows&logoColor=white)](https://github.com/DenissLarka/letterblade/releases/latest/download/Letterblade.msix)
+[![Download for Linux](https://img.shields.io/badge/Download_for_Linux-.AppImage-FCC624?logo=linux&logoColor=black)](https://github.com/DenissLarka/letterblade/releases/latest/download/Letterblade.AppImage)
 [![All downloads](https://img.shields.io/badge/druvu.com-downloads-4147d5)](https://druvu.com/downloads/letterblade.html)
 
-Linux is in preparation.
+Available on all three desktop platforms.
 
 ## What you get
 
