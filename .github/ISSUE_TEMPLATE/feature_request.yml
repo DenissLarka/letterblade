@@ -1,0 +1,17 @@
+name: Feature request
+description: Something Letterblade should handle (or handle better)
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that Letterblade makes hard or impossible?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: How you'd like it to work (optional)
+    validations:
+      required: false

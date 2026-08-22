@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: What should Letterblade handle next?
+    url: https://github.com/DenissLarka/letterblade/issues/7
+    about: Direction input — comments here decide the roadmap.
+  - name: Download Letterblade
+    url: https://druvu.com/downloads/letterblade.html
+    about: Installers for macOS, Windows, and Linux.

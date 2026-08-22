@@ -1,0 +1,39 @@
+name: Bug report
+description: Letterblade misbehaves, renders wrong, or refuses to open a file
+labels: ["bug"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Letterblade version
+      description: Shown in the About dialog.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Windows
+        - Linux
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you do, what did you expect, what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: sample
+    attributes:
+      label: The .msg file (optional)
+      description: >
+        If the file is not confidential, drag it into this box (zip it first — GitHub
+        rejects bare .msg attachments). If it is confidential, describe it instead:
+        roughly how old, plain text or HTML, attachments or embedded images?
+    validations:
+      required: false
