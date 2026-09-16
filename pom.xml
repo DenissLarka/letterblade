@@ -45,7 +45,7 @@
 		     in step with this version. -->
 		<druvu-lib-fx.version>1.0.1</druvu-lib-fx.version>
 		<outlook-message-parser.version>1.16.2</outlook-message-parser.version>
-		<jsoup.version>1.23.1</jsoup.version>
+		<jsoup.version>1.23.2</jsoup.version>
 		<slf4j.version>2.0.19</slf4j.version>
 
 		<!-- test -->
