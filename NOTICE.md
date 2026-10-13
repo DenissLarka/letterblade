@@ -4,14 +4,14 @@ Letterblade is licensed under the Apache License 2.0 (see `LICENSE`). It include
 material as noted below. A complete third-party notice for the packaged application (including
 runtime dependencies) is assembled during the distribution build.
 
-## Bootstrap Icons
+## Phosphor Icons
 
 The toolbar and attachment glyphs in `com.druvu.letterblade.ui.Icons` are `<path>` data copied
-verbatim from [Bootstrap Icons](https://github.com/twbs/icons).
+verbatim from the duotone weight of [Phosphor Icons](https://github.com/phosphor-icons/core).
 
-    The MIT License (MIT)
+    MIT License
 
-    Copyright (c) 2019-2024 The Bootstrap Authors
+    Copyright (c) 2023 Phosphor Icons
 
     Permission is hereby granted, free of charge, to any person obtaining a copy of this software
     and associated documentation files (the "Software"), to deal in the Software without

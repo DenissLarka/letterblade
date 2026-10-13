@@ -43,6 +43,58 @@
     -fx-background-insets: 0, 0 0 1px 0;
 }
 
+/*
+ * Phosphor duotone glyphs (ui.Icons): both layers take the theme's accent foreground, here and only here - the paths
+ * set no fill in code, because a programmatic setFill beats any stylesheet. The back layer's 0.2 opacity is the SVG's
+ * own and stays programmatic (structure, not colour). Theme-native like the wealth app: brand indigo on a light theme,
+ * light indigo on a dark one.
+ */
+.ph-duo {
+    -fx-fill: -color-accent-fg;
+}
+
+/*
+ * The envelope header: a subtle band with a 1px edge to the body (AtlantaFX's two-layer trick again, see .tool-bar),
+ * small muted field names, the values in the normal foreground - the Outlook reading pane's proportions rather than
+ * a separator line. To/Cc collapse to one line each; the caret toggle and the lists themselves expand them.
+ */
+.envelope {
+    -fx-background-color: -color-border-default, -color-bg-subtle;
+    -fx-background-insets: 0, 0 0 1px 0;
+    -fx-padding: 8 12 8 12;
+}
+
+.envelope-subject {
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+}
+
+.envelope-key {
+    -fx-font-size: 12px;
+    -fx-text-fill: -color-fg-muted;
+}
+
+.envelope-value.clickable {
+    -fx-cursor: hand;
+}
+
+.recipients-toggle {
+    -fx-padding: 0 2 0 2;
+}
+
+/* Selected = expanded. The caret already says so; AtlantaFX's accent fill behind an accent-coloured glyph would
+   read as a solid square (measured), so the selected state keeps the flat look. */
+.recipients-toggle:selected,
+.recipients-toggle:selected:hover,
+.recipients-toggle:selected:focused {
+    -fx-background-color: transparent;
+}
+
+/* The "N remote images blocked" bar: the theme's warning tint, so it also reads on a dark theme. */
+.blocked-bar {
+    -fx-background-color: -color-warning-subtle;
+}
+
 /* The empty-window drop target: the conventional dashed frame around the invitation. */
 .drop-zone {
     -fx-border-color: -color-border-default;
@@ -51,4 +103,12 @@
     -fx-border-radius: 12;
     -fx-padding: 32 44 32 44;
     -fx-text-fill: -color-fg-muted;
+}
+
+/* ...and while a file is dragged over the window, the frame answers in the accent colour. */
+.drop-zone.drag-over {
+    -fx-border-color: -color-accent-emphasis;
+    -fx-background-color: -color-accent-subtle;
+    -fx-background-radius: 12;
+    -fx-text-fill: -color-accent-fg;
 }

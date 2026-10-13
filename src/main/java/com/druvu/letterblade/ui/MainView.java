@@ -69,7 +69,8 @@ import org.simplejavamail.outlookmessageparser.model.OutlookMsgAttachment;
  *
  * <p>Not an {@code Application} subclass, so it can be built and driven headlessly. The security boundary is respected
  * here: the WebView has JavaScript disabled and only ever receives content via {@code loadContent} of
- * {@link Sanitizer}-cleaned HTML.
+ * {@link Sanitizer}-cleaned HTML, with the sanitizer's emoji spans swapped for images the view renders itself
+ * ({@link EmojiImages}).
  */
 public final class MainView {
 
@@ -88,6 +89,8 @@ public final class MainView {
      * it uses themed colours, and a looked-up {@code -color-*} variable is not resolved from an inline style.
      */
     private static final String DROP_ZONE_CLASS = "drop-zone";
+
+    private static final String DRAG_OVER_CLASS = "drag-over";
 
     /** macOS is the platform that lifts the menus out of the window, leaving the bar behind as an empty strip. */
     private static final boolean MAC =
@@ -119,6 +122,9 @@ public final class MainView {
     private final HBox toRow = fieldRow("To", toValue);
     private final HBox ccRow = fieldRow("Cc", ccValue);
     private final HBox dateRow = fieldRow("Date", dateValue);
+    // To/Cc are one line each until this is selected (declared before header: buildHeader wires it)
+    private final ToggleButton recipientsToggle = new ToggleButton();
+    private int recipientCount;
     private final VBox header = buildHeader();
 
     // attachment chips (files + embedded messages), hidden when the message has none
@@ -135,6 +141,8 @@ public final class MainView {
     private final WebEngine webEngine = webView.getEngine();
     private final TextArea textArea = new TextArea();
     private final StackPane bodyStack = new StackPane(webView, textArea, placeholder);
+
+    private final EmojiImages emojiImages = new EmojiImages();
 
     private ParsedMessage currentMessage;
     private Sanitizer.Mode sanitizeMode = Sanitizer.Mode.DEFAULT;
@@ -212,7 +220,11 @@ public final class MainView {
             }
             event.consume();
         });
+        // The drop frame answers a file drag in the accent colour while the drag is over the window.
+        scene.setOnDragEntered(event -> dragOver(event.getDragboard().hasFiles()));
+        scene.setOnDragExited(event -> dragOver(false));
         scene.setOnDragDropped(event -> {
+            dragOver(false);
             final Dragboard board = event.getDragboard();
             boolean handled = false;
             if (board.hasFiles() && !board.getFiles().isEmpty()) {
@@ -246,11 +258,8 @@ public final class MainView {
         square(plainToggle);
 
         openButton.setOnAction(event -> chooseAndOpen());
-        copyButton.setOnAction(event -> copyPlainText());
-        selectAllButton.setOnAction(event -> {
-            textArea.selectAll();
-            textArea.requestFocus();
-        });
+        copyButton.setOnAction(event -> copy());
+        selectAllButton.setOnAction(event -> selectAll());
         plainToggle.setOnAction(event -> render());
         loadRemoteButton.setOnAction(event -> loadRemoteImages());
 
@@ -305,9 +314,9 @@ public final class MainView {
         } else {
             final SafeHtml safe = sanitizer.sanitize(currentMessage, sanitizeMode);
             updateBlockedBar(safe.blockedRemoteCount());
-            webEngine.loadContent(safe.html());
+            webEngine.loadContent(emojiImages.inline(safe.html()));
             showBody(webView);
-            selectAllButton.setDisable(true);
+            selectAllButton.setDisable(false); // selects in the WebView too, see selectAll()
         }
     }
 
@@ -317,14 +326,48 @@ public final class MainView {
         render();
     }
 
-    private void copyPlainText() {
+    /** Copies the selection when there is one, the whole message otherwise - in either view. */
+    private void copy() {
         if (currentMessage == null) {
             return;
         }
+        final String selected = plainToggle.isSelected() ? textArea.getSelectedText() : webViewSelection();
+        final boolean whole = isBlank(selected);
         final ClipboardContent content = new ClipboardContent();
-        content.putString(currentMessage.plainText());
+        content.putString(textToCopy(selected, currentMessage.plainText()));
         Clipboard.getSystemClipboard().setContent(content);
-        notifications.success("Copied");
+        notifications.success(whole ? "Copied the whole message" : "Copied the selection");
+    }
+
+    /** The selection wins when it holds anything but whitespace; otherwise the whole message. */
+    static String textToCopy(String selected, String whole) {
+        return isBlank(selected) ? whole : selected;
+    }
+
+    private void selectAll() {
+        if (plainToggle.isSelected()) {
+            textArea.selectAll();
+            textArea.requestFocus();
+        } else {
+            webViewQuery("window.getSelection().selectAllChildren(document.body)");
+            webView.requestFocus();
+        }
+    }
+
+    /**
+     * The WebView's current selection as text. Scripts stay disabled for the page; this is the app's own query, which
+     * the engine still runs (measured on JavaFX 27), and it carries nothing from the page back as markup.
+     */
+    private String webViewSelection() {
+        return webViewQuery("window.getSelection().toString()") instanceof String text ? text : "";
+    }
+
+    private Object webViewQuery(String script) {
+        try {
+            return webEngine.executeScript(script);
+        } catch (RuntimeException noDocumentYet) {
+            return null; // nothing loaded, or the engine refused: callers fall back to the whole message
+        }
     }
 
     private void updateHeader(ParsedMessage message) {
@@ -342,6 +385,10 @@ public final class MainView {
         fromValue.setText(formatFrom(message.fromName(), message.fromEmail()));
         setRow(toRow, toValue, message.displayTo());
         setRow(ccRow, ccValue, message.displayCc());
+        recipientCount = recipientCount(message.displayTo()) + recipientCount(message.displayCc());
+        recipientsToggle.setVisible(recipientCount > 0);
+        recipientsToggle.setManaged(recipientCount > 0);
+        setRecipientsExpanded(recipientsToggle.isSelected()); // refreshes the count in the tooltip
         final boolean hasDate = message.date() != null;
         dateRow.setVisible(hasDate);
         dateRow.setManaged(hasDate);
@@ -484,6 +531,17 @@ public final class MainView {
     }
 
     /** The placeholder as a drop target: the invitation inside its dashed frame. */
+    /** Highlights the drop frame while a file drag is over the window; a no-op when no frame is shown. */
+    void dragOver(boolean active) {
+        if (active) {
+            if (!placeholder.getStyleClass().contains(DRAG_OVER_CLASS)) {
+                placeholder.getStyleClass().add(DRAG_OVER_CLASS);
+            }
+        } else {
+            placeholder.getStyleClass().remove(DRAG_OVER_CLASS);
+        }
+    }
+
     private void showDropHint() {
         placeholder.setText(DROP_HINT);
         if (!placeholder.getStyleClass().contains(DROP_ZONE_CLASS)) {
@@ -557,12 +615,46 @@ public final class MainView {
     }
 
     private VBox buildHeader() {
-        subjectLabel.setStyle("-fx-font-size: 15px; -fx-font-weight: bold;");
+        subjectLabel.getStyleClass().add("envelope-subject");
         // One line with an ellipsis when too long (default Label overflow); the full subject is in the tooltip.
         subjectLabel.setWrapText(false);
+        // To and Cc start collapsed to one line each (a long recipient list used to take half the window); the
+        // caret at the end of the To row expands both, and so does a click on either list.
+        recipientsToggle.getStyleClass().addAll("flat", "button-icon", "recipients-toggle");
+        recipientsToggle.setFocusTraversable(false);
+        recipientsToggle.selectedProperty().addListener((obs, was, expanded) -> setRecipientsExpanded(expanded));
+        toValue.getStyleClass().add("clickable");
+        ccValue.getStyleClass().add("clickable");
+        toValue.setOnMouseClicked(event -> recipientsToggle.fire());
+        ccValue.setOnMouseClicked(event -> recipientsToggle.fire());
+        toRow.getChildren().add(recipientsToggle);
+        setRecipientsExpanded(false);
         final VBox box = new VBox(4, subjectLabel, fromRow, toRow, ccRow, dateRow);
-        box.setPadding(new Insets(8, 12, 8, 12));
+        box.getStyleClass().add("envelope"); // band, edge and padding live in letterblade.css
         return box;
+    }
+
+    private void setRecipientsExpanded(boolean expanded) {
+        toValue.setWrapText(expanded);
+        ccValue.setWrapText(expanded);
+        recipientsToggle.setGraphic(expanded ? Icons.caretUp() : Icons.caretDown());
+        final String collapsedHint =
+                recipientCount > 0 ? "Show all " + recipientCount + " recipients" : "Show all recipients";
+        recipientsToggle.setTooltip(new Tooltip(expanded ? "Show fewer" : collapsedHint));
+    }
+
+    /** Recipients in a display string: Outlook separates them with semicolons. */
+    static int recipientCount(String display) {
+        if (isBlank(display)) {
+            return 0;
+        }
+        int count = 0;
+        for (String part : display.split(";")) {
+            if (!isBlank(part)) {
+                count++;
+            }
+        }
+        return count;
     }
 
     /** Stable node ids so headless UI tests can look nodes up; no effect on behaviour. */
@@ -576,6 +668,13 @@ public final class MainView {
         toRow.setId("toRow");
         ccRow.setId("ccRow");
         dateRow.setId("dateRow");
+        toValue.setId("toValue");
+        ccValue.setId("ccValue");
+        recipientsToggle.setId("recipientsToggle");
+        openButton.setId("openButton");
+        selectAllButton.setId("selectAllButton");
+        copyButton.setId("copyButton");
+        plainToggle.setId("plainToggle");
     }
 
     private FlowPane buildAttachmentsRow() {
@@ -590,7 +689,7 @@ public final class MainView {
         final HBox bar = new HBox(10, blockedLabel, loadRemoteButton);
         bar.setAlignment(Pos.CENTER_LEFT);
         bar.setPadding(new Insets(6, 12, 6, 12));
-        bar.setStyle("-fx-background-color: #fff3cd;");
+        bar.getStyleClass().add("blocked-bar"); // themed in letterblade.css (was a literal that ignored dark themes)
         bar.setVisible(false);
         bar.setManaged(false);
         return bar;
@@ -647,11 +746,15 @@ public final class MainView {
     private static HBox fieldRow(String name, Label value) {
         final Label key = new Label(name);
         key.setMinWidth(48);
-        key.setStyle("-fx-font-weight: bold;");
+        key.getStyleClass().add("envelope-key");
         value.setWrapText(true);
+        value.getStyleClass().add("envelope-value");
+        // MAX_VALUE so hgrow can hand the label the row's width: a one-line label then ellipsizes at the edge
+        // instead of pushing the row wider than the window.
+        value.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(value, Priority.ALWAYS);
         final HBox row = new HBox(8, key, value);
-        row.setAlignment(Pos.TOP_LEFT);
+        row.setAlignment(Pos.BASELINE_LEFT);
         return row;
     }
 

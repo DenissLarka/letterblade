@@ -47,6 +47,70 @@ public class SanitizerTest {
     }
 
     @Test
+    public void struckAndRevisedTextKeepsItsTags() {
+        // Outlook writes struck-through text as <s>; relaxed() alone would drop the tag and keep the words.
+        final String out =
+                cleanDefault("<p><s><span style=\"color:red\">done</span></s> <del>old</del><ins>new</ins></p>");
+        assertThat(out).contains("<s>").contains("<del>").contains("<ins>").contains("color:red");
+    }
+
+    @Test
+    public void messageStylesheetSurvivesMinusFetchingRules() {
+        final String out = cleanDefault(
+                "<html><head><style><!-- p.MsoNormal{margin:0;font-size:11pt}"
+                        + " @import url(http://evil.example/x.css); .t{background:url(http://evil.example/p.png)}"
+                        + " @font-face{font-family:X} b{color:red} --></style></head><body><p class=MsoNormal>x</p></body></html>");
+        assertThat(out)
+                .contains("<style>")
+                .contains("p.MsoNormal{margin:0;font-size:11pt}")
+                .contains("b{color:red}");
+        assertThat(out)
+                .doesNotContain("evil.example")
+                .doesNotContain("@import")
+                .doesNotContain("@font-face")
+                .doesNotContain("url(");
+    }
+
+    @Test
+    public void messageStylesheetInAllowRemoteModeMayFetchLikeInlineStylesDo() {
+        final String out = sanitizer
+                .sanitizeHtml(
+                        "<style>.t{background:url(http://img.example/p.png)}</style><p class=t>x</p>",
+                        Map.of(),
+                        Mode.ALLOW_REMOTE)
+                .html();
+        assertThat(out).contains("url(http://img.example/p.png)");
+    }
+
+    @Test
+    public void mailWithoutStylesheetGetsTheReadingPaneDefaults() {
+        assertThat(cleanDefault("<p>x</p>"))
+                .contains("<style>")
+                .contains("font-family:'Aptos'")
+                .contains("font-size:11pt");
+    }
+
+    @Test
+    public void supplementaryCharactersLeaveAsNumericReferences() {
+        // WebView.loadContent garbles raw surrogate pairs into U+FFFD; character references survive the trip.
+        assertThat(cleanDefault("<p>🧱 ok</p>")).contains("&#x1f9f1;").doesNotContain("🧱");
+    }
+
+    @Test
+    public void emojiRunsGetTheEmojiFontSpan() {
+        final String out = cleanDefault("<p>done ✅ 🧱📊 tail</p>");
+        assertThat(out).contains("<span class=\"lb-emoji\" style=\"font-family:'Segoe UI Emoji'");
+        assertThat(out).contains(">&#x2705;</span>").contains(">&#x1f9f1;&#x1f4ca;</span>");
+        assertThat(out).contains("done ").contains(" tail");
+    }
+
+    @Test
+    public void plainTextPathEscapesAndMarksEmojiToo() {
+        final String out = Sanitizer.escapedPreText("<script>x 😀");
+        assertThat(out).contains("&lt;script&gt;").contains("&#x1f600;").contains("Segoe UI Emoji");
+    }
+
+    @Test
     public void remoteImageBlockedAndCountedInDefault() {
         final SafeHtml r =
                 sanitizer.sanitizeHtml("<img src=\"http://evil.example/track.png\">", Map.of(), Mode.DEFAULT);

@@ -1,7 +1,7 @@
 # Letterblade
 
 [![CI](https://github.com/DenissLarka/letterblade/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/DenissLarka/letterblade/actions/workflows/ci.yml)
-![Java](https://img.shields.io/badge/Java-25-blue)
+![Java](https://img.shields.io/badge/Java-27-blue)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
 **Open and read Outlook `.msg` files on macOS, Windows, and Linux — no Outlook required.**
@@ -19,7 +19,7 @@ Someone sends you a `.msg` file. You don't have Outlook — you're on a Mac, on 
 simply never installed it. Letterblade opens the file and shows you the message the
 way it was meant to be read: formatting, inline images, attachments, the works.
 
-- **Open it your way.** Drop a `.msg` file onto the window, or use File → Open.
+- **Open it your way.** Drop a `.msg` file onto the window, or click Open.
 - **The message as intended.** HTML mail renders with its formatting and inline images;
   a plain-text view is one click away.
 - **The envelope at a glance.** From, To, CC, date, and subject sit above the message.
@@ -62,6 +62,9 @@ say what you'd use it for:
 ```
 mvn javafx:run
 ```
+
+A JavaFX-bundled JDK (Azul Zulu FX) at the version in `pom.xml` must be on `PATH`. On Windows,
+`Start-Letterblade.ps1` wraps the same command; give it a `.msg` path to open the file at start-up.
 
 ## License
 

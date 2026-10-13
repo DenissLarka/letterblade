@@ -1,13 +1,20 @@
 package com.druvu.letterblade.render;
 
 import com.druvu.letterblade.msg.ParsedMessage;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.jsoup.Jsoup;
+import org.jsoup.nodes.DataNode;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+import org.jsoup.nodes.TextNode;
 import org.jsoup.safety.Cleaner;
 import org.jsoup.safety.Safelist;
 import org.simplejavamail.outlookmessageparser.model.OutlookFileAttachment;
@@ -21,8 +28,33 @@ import org.simplejavamail.outlookmessageparser.model.OutlookFileAttachment;
  * ({@code cid:}) images to {@code data:} URIs and <em>counts</em> remote images; it never relies on its own string
  * checks to remove anything unsafe. Whatever the pre-pass misses must still die in the Cleaner. JavaScript is never
  * enabled, in either mode.
+ *
+ * <p>Two steps run <em>after</em> the Cleaner and are presentation only, so they add nothing an attacker controls: runs
+ * of emoji are wrapped in a {@code <span>} carrying one literal font-family style, and the result is serialized as
+ * ASCII with character references. Both exist for the JavaFX WebKit port (measured on JavaFX 27): {@code loadContent}
+ * garbles supplementary-plane characters (each surrogate pair arrives as replacement characters), and even as
+ * references they only find a glyph when an emoji family is named explicitly - monochrome, since JavaFX draws no colour
+ * emoji.
  */
 public final class Sanitizer {
+
+    /** Marks an emoji run for the view, which may swap the span for an image it renders itself. */
+    public static final String EMOJI_SPAN_CLASS = "lb-emoji";
+
+    /**
+     * Defaults for a message that brings no stylesheet: Outlook's reading-pane look (Aptos, then the platform's UI
+     * font, 11pt) instead of WebKit's 16px serif. A message's own rules follow and win.
+     */
+    static final String BASE_CSS =
+            "body{font-family:'Aptos','Segoe UI',Calibri,Helvetica,Arial,sans-serif;font-size:11pt;margin:8px}\n";
+
+    private static final String EMOJI_FONT_STYLE =
+            "font-family:'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji',sans-serif";
+
+    /** An emoji followed by any number of emoji, variation selectors, joiners, skin tones or keycap marks. */
+    private static final Pattern EMOJI_RUN =
+            Pattern.compile("[\\x{2600}-\\x{27BF}\\x{2B00}-\\x{2BFF}\\x{1F000}-\\x{1FAFF}]"
+                    + "(?:[\\x{2600}-\\x{27BF}\\x{2B00}-\\x{2BFF}\\x{1F000}-\\x{1FAFF}\\x{FE0F}\\x{200D}\\x{20E3}])*");
 
     /** Whether remote ({@code http/https}) content is blocked (default) or allowed (user opt-in). */
     public enum Mode {
@@ -84,8 +116,15 @@ public final class Sanitizer {
             stripFetchingStyles(doc);
         }
 
+        // One <style> at the top of the body: the reading-pane defaults, then the message's own rules minus
+        // anything that fetches. The Cleaner keeps it because "style" is in the safelist; a <style> in <head>
+        // would be lost (the Cleaner copies the body only), which is where Outlook puts Word's stylesheet.
+        final String css = BASE_CSS + safeStyleRules(doc, mode);
+        doc.select("style").remove();
+        doc.body().prependElement("style").appendChild(new DataNode(css));
+
         final Document clean = new Cleaner(safelist(mode)).clean(doc);
-        return new SafeHtml(clean.body().html(), mode == Mode.DEFAULT ? blockedRemote : 0);
+        return new SafeHtml(forWebView(clean), mode == Mode.DEFAULT ? blockedRemote : 0);
     }
 
     /**
@@ -95,7 +134,77 @@ public final class Sanitizer {
     static String escapedPreText(String plainText) {
         final Document doc = Document.createShell("");
         doc.body().appendElement("pre").text(plainText == null ? "" : plainText);
-        return doc.body().html();
+        return forWebView(doc);
+    }
+
+    /** The post-Cleaner presentation steps (see the class comment): emoji spans, then ASCII serialization. */
+    private static String forWebView(Document safe) {
+        markEmojiRuns(safe.body());
+        safe.outputSettings().charset(StandardCharsets.US_ASCII);
+        return safe.body().html();
+    }
+
+    private static void markEmojiRuns(Element root) {
+        final List<TextNode> textNodes = new ArrayList<>();
+        root.traverse((node, depth) -> {
+            if (node instanceof TextNode text) {
+                textNodes.add(text);
+            }
+        });
+        for (TextNode text : textNodes) {
+            wrapEmojiRuns(text);
+        }
+    }
+
+    /** Splits the text node around each emoji run and wraps the run; the text itself is never altered. */
+    private static void wrapEmojiRuns(TextNode node) {
+        TextNode current = node;
+        Matcher matcher = EMOJI_RUN.matcher(current.getWholeText());
+        while (matcher.find()) {
+            final int start = matcher.start();
+            final int length = matcher.end() - start;
+            final TextNode run = start == 0 ? current : current.splitText(start);
+            final TextNode rest = length < run.getWholeText().length() ? run.splitText(length) : null;
+            run.wrap("<span class=\"" + EMOJI_SPAN_CLASS + "\" style=\"" + EMOJI_FONT_STYLE + "\"></span>");
+            if (rest == null) {
+                return;
+            }
+            current = rest;
+            matcher = EMOJI_RUN.matcher(current.getWholeText());
+        }
+    }
+
+    /**
+     * The message's own stylesheets, rule by rule, minus every rule that could fetch or escape: any at-rule (fonts,
+     * imports, media), {@code expression}, {@code behavior}, bindings, backslash escapes, and in default mode
+     * {@code url}/{@code image-set}. Word's HTML keeps its paragraph metrics and fonts there, which is most of what
+     * makes a message look as it did in Outlook. Splitting on the closing brace is deliberately crude: a rule that a
+     * stray brace cuts in two is checked twice, never skipped.
+     */
+    static String safeStyleRules(Document doc, Mode mode) {
+        final StringBuilder out = new StringBuilder();
+        for (Element style : doc.select("style")) {
+            final String css = style.data().replace("<!--", "").replace("-->", "");
+            for (String rule : css.split("}")) {
+                final String trimmed = rule.strip();
+                if (!trimmed.isEmpty() && isSafeRule(trimmed, mode)) {
+                    out.append(trimmed).append("}\n");
+                }
+            }
+        }
+        return out.toString();
+    }
+
+    private static boolean isSafeRule(String rule, Mode mode) {
+        final String lower = rule.toLowerCase(Locale.ROOT);
+        if (lower.contains("@")
+                || lower.contains("\\")
+                || lower.contains("expression")
+                || lower.contains("behavior")
+                || lower.contains("binding")) {
+            return false;
+        }
+        return mode == Mode.ALLOW_REMOTE || !(lower.contains("url") || lower.contains("image-set"));
     }
 
     /**
@@ -117,7 +226,11 @@ public final class Sanitizer {
     }
 
     private static Safelist safelist(Mode mode) {
-        final Safelist safelist = Safelist.relaxed().addAttributes(":all", "style");
+        // relaxed() predates HTML5: it knows <strike> but not <s>, <del>, <ins> - and Outlook writes struck
+        // text as <s>. Purely presentational, no attributes of their own, so they are safe to let through.
+        // "style" (the element) carries only the stylesheet sanitizeHtml assembled; the Cleaner copies its text.
+        final Safelist safelist =
+                Safelist.relaxed().addTags("s", "del", "ins", "style").addAttributes(":all", "style");
         // Reduce img src to data: only. A remote img the pre-pass missed (odd whitespace, exotic
         // scheme casing) still has its src stripped here - the Cleaner is the real enforcer.
         safelist.removeProtocols("img", "src", "http", "https").addProtocols("img", "src", "data");

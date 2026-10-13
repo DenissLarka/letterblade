@@ -20,6 +20,7 @@ import java.util.Map;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.BorderStrokeStyle;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.Region;
@@ -206,6 +207,79 @@ public class MainViewTest {
         assertThat(FxTestToolkit.call(() -> row(view, "#envelopeHeader").isVisible()))
                 .isTrue();
         assertThat(FxTestToolkit.call(() -> row(view, "#fromRow").isVisible())).isTrue();
+    }
+
+    // --- recipients: one line each until asked ---
+
+    @Test
+    public void recipientRowsStartCollapsedAndExpandOnTheToggle() {
+        MainView view = show(message("Subject", "<p>hi</p>", "hi", BodyBranch.HTML, "a@x; b@x; c@x; d@x", "e@x; f@x"));
+        Label toValue = FxTestToolkit.call(() -> (Label) view.node().lookup("#toValue"));
+        Label ccValue = FxTestToolkit.call(() -> (Label) view.node().lookup("#ccValue"));
+        ToggleButton toggle =
+                FxTestToolkit.call(() -> (ToggleButton) view.node().lookup("#recipientsToggle"));
+
+        assertThat(FxTestToolkit.call(toValue::isWrapText))
+                .as("To starts on one line")
+                .isFalse();
+        assertThat(FxTestToolkit.call(ccValue::isWrapText))
+                .as("Cc starts on one line")
+                .isFalse();
+        assertThat(FxTestToolkit.call(toggle::isVisible)).isTrue();
+        assertThat(FxTestToolkit.call(() -> toggle.getTooltip().getText())).isEqualTo("Show all 6 recipients");
+
+        FxTestToolkit.runAndWait(toggle::fire);
+        assertThat(FxTestToolkit.call(toValue::isWrapText))
+                .as("To wraps once expanded")
+                .isTrue();
+        assertThat(FxTestToolkit.call(ccValue::isWrapText))
+                .as("Cc follows the same toggle")
+                .isTrue();
+        assertThat(FxTestToolkit.call(() -> toggle.getTooltip().getText())).isEqualTo("Show fewer");
+    }
+
+    @Test
+    public void recipientsToggleIsHiddenWithoutRecipients() {
+        MainView view = show(message("Subject", "<p>hi</p>", "hi", BodyBranch.HTML, "", ""));
+        ToggleButton toggle =
+                FxTestToolkit.call(() -> (ToggleButton) view.node().lookup("#recipientsToggle"));
+        assertThat(FxTestToolkit.call(toggle::isManaged)).isFalse();
+    }
+
+    @Test
+    public void copyPrefersASelectionOverTheWholeMessage() {
+        assertThat(MainView.textToCopy("part", "whole message")).isEqualTo("part");
+        assertThat(MainView.textToCopy("", "whole message")).isEqualTo("whole message");
+        assertThat(MainView.textToCopy("  \n", "whole message")).isEqualTo("whole message");
+        assertThat(MainView.textToCopy(null, "whole message")).isEqualTo("whole message");
+    }
+
+    @Test
+    public void recipientCountSplitsOnSemicolons() {
+        assertThat(MainView.recipientCount("a@x; b@x;c@x; ")).isEqualTo(3);
+        assertThat(MainView.recipientCount("  ")).isZero();
+        assertThat(MainView.recipientCount(null)).isZero();
+    }
+
+    // --- drag-over highlight ---
+
+    /** The dashed frame gets the drag-over class while a file drag is over the window, and loses it after. */
+    @Test
+    public void dropFrameHighlightsWhileAFileDragIsOverTheWindow() {
+        MainView view = FxTestToolkit.call(this::newView);
+        Label hint = FxTestToolkit.call(() -> (Label) view.node().lookup("#bodyPlaceholder"));
+
+        FxTestToolkit.runAndWait(() -> view.dragOver(true));
+        assertThat(FxTestToolkit.call(() -> hint.getStyleClass().contains("drag-over")))
+                .isTrue();
+        FxTestToolkit.runAndWait(() -> view.dragOver(true)); // repeated entries must not stack the class
+        assertThat(FxTestToolkit.call(() -> hint.getStyleClass().stream()
+                        .filter("drag-over"::equals)
+                        .count()))
+                .isEqualTo(1L);
+        FxTestToolkit.runAndWait(() -> view.dragOver(false));
+        assertThat(FxTestToolkit.call(() -> hint.getStyleClass().contains("drag-over")))
+                .isFalse();
     }
 
     // --- helpers ---
