@@ -9,7 +9,8 @@ public class LetterbladeAppTest {
 
     @Test
     public void unquotedStripsOnlyAWrappingPairOfQuotes() {
-        assertThat(LetterbladeApp.unquoted("\"/tmp/Data Management.msg\"")).isEqualTo("/tmp/Data Management.msg");
+        // No file is read: the strings are what the javafx plugin hands the app for a path with a space in it.
+        assertThat(LetterbladeApp.unquoted("\"/mail/with space.msg\"")).isEqualTo("/mail/with space.msg");
         assertThat(LetterbladeApp.unquoted("/tmp/plain.msg")).isEqualTo("/tmp/plain.msg");
         assertThat(LetterbladeApp.unquoted("\"")).isEqualTo("\"");
         assertThat(LetterbladeApp.unquoted("")).isEmpty();
