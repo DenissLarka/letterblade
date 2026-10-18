@@ -80,8 +80,21 @@ public class LinkGuardTest {
         FxTestToolkit.runAndWait(() -> engine.load("https://example.invalid/elsewhere"));
         awaitEscape();
         assertThat(escapes).containsExactly("https://example.invalid/elsewhere");
-        assertThat(FxTestToolkit.call(() -> engine.getLoadWorker().getState()))
-                .isIn(Worker.State.CANCELLED, Worker.State.FAILED);
+        assertThat(awaitEndState()).isIn(Worker.State.CANCELLED, Worker.State.FAILED);
+    }
+
+    /**
+     * The worker's state once the load has ended. Cancelling is asynchronous: on Linux CI the worker still read RUNNING
+     * right after the guard had reported the escape, so the end state is waited for rather than read at once.
+     */
+    private Worker.State awaitEndState() throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        Worker.State state = FxTestToolkit.call(() -> engine.getLoadWorker().getState());
+        while ((state == Worker.State.SCHEDULED || state == Worker.State.RUNNING) && System.nanoTime() < deadline) {
+            Thread.sleep(20);
+            state = FxTestToolkit.call(() -> engine.getLoadWorker().getState());
+        }
+        return state;
     }
 
     /** Loads {@code html} and waits for the engine to finish, so the document exists and the guard is on it. */

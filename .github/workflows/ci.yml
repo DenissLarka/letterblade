@@ -6,14 +6,10 @@
 # modules from the JDK and has no org.openjfx dependencies, mirroring the local build.
 # Java 27 (STS) since 2026-10-13, with the kit: AtlantaFX 3 needs JavaFX 27.
 #
-# druvu-lib-fx is consumed as the SNAPSHOT of its main (see druvu-lib-fx.version in
-# pom.xml). SNAPSHOTs have no remote, so this workflow checks out the kit's main and
-# installs it from source. That couples the two repos: the pom property must say what
-# the kit's main pom says, or resolution fails (main-branch tracking went red exactly
-# that way from 2026-07-19 to 2026-08-02). At the next kit release the pom is pinned to
-# the release and the ref below goes back to its tag - GitHub Packages holds releases
-# only and needs auth this workflow does not carry. Maven Central is deliberately not an
-# option: it was ruled out for druvu-lib-fx.
+# druvu-lib-fx is a release (see druvu-lib-fx.version in pom.xml), checked out at its tag
+# and installed from source: GITHUB_TOKEN cannot read another repository's packages, and
+# Maven Central was ruled out for the kit. The ref below must match the pom property, or
+# resolution fails (tracking the kit's main went red exactly that way 2026-07-19 to 08-02).
 #
 # The headless JavaFX UI tests start the real toolkit (Platform.startup), so the verify
 # step runs under xvfb to give it a virtual display (no windows are ever shown). xvfb is
@@ -35,11 +31,11 @@ jobs:
       - name: Check out letterblade
         uses: actions/checkout@v7
 
-      - name: Check out druvu-lib-fx main (the SNAPSHOT in pom's druvu-lib-fx.version; back to the tag at the next kit release)
+      - name: Check out druvu-lib-fx at the release tag (must match pom's druvu-lib-fx.version)
         uses: actions/checkout@v7
         with:
           repository: DenissLarka/druvu-lib-fx
-          ref: main
+          ref: v2.0.0
           path: druvu-lib-fx
 
       - name: Set up JDK 27 (Zulu, JavaFX bundled)

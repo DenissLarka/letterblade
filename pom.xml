@@ -18,10 +18,6 @@
 		</developer>
 	</developers>
 
-	<!-- letterblade-dist bundles this artifact into the installer images, so it must exist as one
-	     canonical binary per release rather than being rebuilt on each dist box (house rule
-	     2026-08-16). Published by .github/workflows/maven-github-publish.yml on release; v1.0.0 was
-	     published by hand from its tag, after the fact. -->
 	<distributionManagement>
 		<repository>
 			<id>github</id>
@@ -32,31 +28,16 @@
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<!-- Java 27 (STS) since 2026-10-13, with the kit: AtlantaFX 3 needs JavaFX 27, and JavaFX is the
-		     JDK's. Cost accepted with the FX layer (2026-10-04): a JDK step - and a three-OS installer
-		     re-release - every six months until the next LTS. -->
+
 		<java.version>27</java.version>
 
-		<!-- Spotless (palantir) is OFF while the build runs on JDK 27, as in the kit: palantir-java-format
-		     crashes there (NoSuchFieldError JCCompilationUnit.endPositions -
-		     https://github.com/palantir/palantir-java-format/issues/1785); measured 2026-10-13 with 2.102.0,
-		     the newest release, still failing. Until a release supports 27: format from a JDK 25 shell,
-		     `mvn spotless:apply` - the goal alone, which compiles nothing. To re-enable: delete this property
-		     and bump palantir-java-format.version to the release that fixed it. -->
+		<!-- Spotless (palantir) is OFF while the build runs on JDK 27
+		     https://github.com/palantir/palantir-java-format/issues/1785 -->
 		<spotless.check.skip>true</spotless.check.skip>
 
-		<!-- JavaFX comes from the JDK (Azul Zulu FX): there are deliberately NO org.openjfx
-		     dependencies - the app ships its JDK via the druvu install pipeline, so the fx modules
-		     are version-locked to the JDK. -->
-
 		<!-- application dependencies -->
-		<!-- The kit's main as a SNAPSHOT, built from source: `mvn install` in the druvu-lib-fx clone
-		     puts it in .m2 (there is no remote for SNAPSHOTs - GitHub Packages holds releases only).
-		     CI mirrors that by checking out the kit's main and installing it. The coupling is real:
-		     this property must say what the kit's main pom says, or resolution fails. Before any
-		     official installer the kit is released and this is pinned to that tag again (no-SNAPSHOT
-		     rule, 2026-08-14) - with the ref in .github/workflows/ci.yml moved back to the tag. -->
-		<druvu-lib-fx.version>1.0.2-SNAPSHOT</druvu-lib-fx.version>
+		<!-- A released kit -->
+		<druvu-lib-fx.version>2.0.0</druvu-lib-fx.version>
 		<outlook-message-parser.version>1.16.2</outlook-message-parser.version>
 		<jsoup.version>1.23.2</jsoup.version>
 		<slf4j.version>2.0.20</slf4j.version>
