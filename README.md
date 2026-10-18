@@ -39,6 +39,8 @@ behalf:
 - **Remote images are blocked** until you ask for them. Tracking pixels stay blind; a bar tells
   you how many images were held back, and one click loads them for that message only.
 - **Scripts and active content are stripped** before the message is rendered.
+- **Links open in your browser, after you have seen where they lead.** A click shows the real
+  address (and the text it was hiding behind, when that differs) and waits for your Open.
 - **Attachments never run or open automatically** — you decide what happens to each one.
 - **Your mail stays on your machine.** Letterblade reads files locally; nothing is uploaded
   anywhere.

@@ -112,3 +112,8 @@
     -fx-background-radius: 12;
     -fx-text-fill: -color-accent-fg;
 }
+
+/* The link dialog's warning line: the theme's warning foreground (defined by every AtlantaFX theme family). */
+.link-warning {
+    -fx-text-fill: -color-warning-fg;
+}

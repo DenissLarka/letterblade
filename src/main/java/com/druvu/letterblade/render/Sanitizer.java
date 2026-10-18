@@ -229,8 +229,12 @@ public final class Sanitizer {
         // relaxed() predates HTML5: it knows <strike> but not <s>, <del>, <ins> - and Outlook writes struck
         // text as <s>. Purely presentational, no attributes of their own, so they are safe to let through.
         // "style" (the element) carries only the stylesheet sanitizeHtml assembled; the Cleaner copies its text.
-        final Safelist safelist =
-                Safelist.relaxed().addTags("s", "del", "ins", "style").addAttributes(":all", "style");
+        // relaxed() also predates the presentation attributes Word lays a newsletter out with: <div align=center> is
+        // the one thing that centres its column, valign the one thing that top-aligns its cells. Both take a fixed
+        // set of keywords, never a URL, so they are safe on every tag.
+        final Safelist safelist = Safelist.relaxed()
+                .addTags("s", "del", "ins", "style")
+                .addAttributes(":all", "style", "align", "valign");
         // Reduce img src to data: only. A remote img the pre-pass missed (odd whitespace, exotic
         // scheme casing) still has its src stripped here - the Cleaner is the real enforcer.
         safelist.removeProtocols("img", "src", "http", "https").addProtocols("img", "src", "data");

@@ -12,6 +12,8 @@ import com.druvu.lib.fx.status.StatusBarModel;
 import com.druvu.lib.fx.util.FxThreads;
 import java.awt.Desktop;
 import java.io.File;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.ZoneId;
@@ -70,7 +72,8 @@ import org.simplejavamail.outlookmessageparser.model.OutlookMsgAttachment;
  * <p>Not an {@code Application} subclass, so it can be built and driven headlessly. The security boundary is respected
  * here: the WebView has JavaScript disabled and only ever receives content via {@code loadContent} of
  * {@link Sanitizer}-cleaned HTML, with the sanitizer's emoji spans swapped for images the view renders itself
- * ({@link EmojiImages}).
+ * ({@link EmojiImages}), and it never shows anything else: a click on a link stops at the {@link LinkGuard} and is
+ * offered to the reader in a dialog before the system browser opens it.
  */
 public final class MainView {
 
@@ -79,6 +82,9 @@ public final class MainView {
             .withZone(ZoneId.systemDefault());
 
     private static final double BUTTON_SIZE = 42;
+
+    /** The link dialog's text width: a tracking address wraps to a few lines instead of stretching the window. */
+    private static final double LINK_DIALOG_WIDTH = 440;
 
     private static final String DROP_HINT = "Drop a .msg file here or use Open";
     private static final String NO_BODY = "(no message body)";
@@ -165,8 +171,13 @@ public final class MainView {
         this.childWindowOpener = Objects.requireNonNull(childWindowOpener, "childWindowOpener");
         Objects.requireNonNull(statusBarModel, "statusBarModel");
 
-        // Security invariant: JavaScript off, before any content is ever loaded.
+        // Security invariant: JavaScript off, before any content is ever loaded - and the page cannot take the view
+        // anywhere. A link click stops at the guard and is offered to the reader (showLinkDialog); no popup window is
+        // ever created; the context menu is off, as its "Open Link" would navigate behind the guard's back.
         webEngine.setJavaScriptEnabled(false);
+        webEngine.setCreatePopupHandler(popup -> null);
+        webView.setContextMenuEnabled(false);
+        LinkGuard.install(webEngine, this::showLinkDialog, this::blockedNavigation);
         textArea.setEditable(false);
         textArea.setWrapText(true);
         webView.setVisible(false);
@@ -517,6 +528,107 @@ public final class MainView {
                         FxThreads.fxExecutor());
     }
 
+    /**
+     * Modal dialog for a link the reader clicked: the real address, the text it was shown as when that differs (the
+     * phishing tell), a warning; Cancel / Copy address / Open. Open is the only way a link leaves the viewer.
+     */
+    private void showLinkDialog(Link link) {
+        final Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Link");
+        dialog.setHeaderText(null);
+        final Window owner = window();
+        if (owner != null) {
+            dialog.initOwner(owner);
+        }
+        // A dialog is its own scene: the app stylesheet (the warning colour) has to be attached here as well.
+        dialog.getDialogPane().getStylesheets().addAll(root.getStylesheets());
+
+        final ButtonType copyType = new ButtonType("Copy address", ButtonBar.ButtonData.OTHER);
+        final ButtonType openType = new ButtonType("Open", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.CANCEL, copyType, openType);
+        // Enter must not open the link: a reader who taps it on reflex gets the safe choice. JavaFX hands the default
+        // role to the OK-type button, so it moves to Cancel here (which keeps Escape as well); Open takes a click.
+        ((Button) dialog.getDialogPane().lookupButton(openType)).setDefaultButton(false);
+        ((Button) dialog.getDialogPane().lookupButton(ButtonType.CANCEL)).setDefaultButton(true);
+
+        // A read-only text area rather than a label: a newsletter address runs to hundreds of characters, and the
+        // reader may want to select part of it.
+        final TextArea address = new TextArea(link.address());
+        address.setEditable(false);
+        address.setWrapText(true);
+        address.setPrefRowCount(4); // a tracking address fills four lines at this width; longer ones scroll
+        address.setPrefWidth(LINK_DIALOG_WIDTH);
+        final Label warning = wrappedLabel(
+                "Letterblade will hand this address to " + link.opensIn() + ". Open only links you trust.",
+                LINK_DIALOG_WIDTH);
+        warning.getStyleClass().add("link-warning");
+
+        final GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(6);
+        grid.setPadding(new Insets(10));
+        grid.addRow(0, boldLabel("Address"), address);
+        int row = 1;
+        if (link.textDiffers()) {
+            grid.addRow(row++, boldLabel("Shown as"), wrappedLabel(link.displayText(), LINK_DIALOG_WIDTH));
+        }
+        grid.add(warning, 1, row);
+        dialog.getDialogPane().setContent(grid);
+        dialog.setResultConverter(button -> button);
+
+        dialog.showAndWait().ifPresent(button -> {
+            if (button == copyType) {
+                copyAddress(link);
+            } else if (button == openType) {
+                openLink(link);
+            }
+        });
+    }
+
+    private void copyAddress(Link link) {
+        final ClipboardContent content = new ClipboardContent();
+        content.putString(link.address());
+        Clipboard.getSystemClipboard().setContent(content);
+        notifications.success("Copied the address");
+    }
+
+    /**
+     * Hands the address to the system off the FX thread, like an attachment's Open - only ever on this explicit action.
+     */
+    private void openLink(Link link) {
+        final URI uri;
+        try {
+            uri = link.uri();
+        } catch (URISyntaxException malformed) {
+            notifications.error("The address is not valid");
+            return;
+        }
+        if (!Desktop.isDesktopSupported()) {
+            notifications.warning("Opening links is not supported on this system");
+            return;
+        }
+        exec.run("Opening link", () -> {
+                    if (link.isMail()) {
+                        Desktop.getDesktop().mail(uri);
+                    } else {
+                        Desktop.getDesktop().browse(uri);
+                    }
+                })
+                .whenCompleteAsync(
+                        (ignored, error) -> {
+                            if (error != null) {
+                                notifications.error("Could not open the link");
+                            }
+                        },
+                        FxThreads.fxExecutor());
+    }
+
+    /** The guard's backstop fired: the engine was heading somewhere other than the message. Put the message back. */
+    private void blockedNavigation(String location) {
+        notifications.warning("Blocked a page load: " + location);
+        render();
+    }
+
     private Window window() {
         return root.getScene() == null ? null : root.getScene().getWindow();
     }
@@ -740,6 +852,14 @@ public final class MainView {
     private static Label boldLabel(String text) {
         final Label label = new Label(text);
         label.setStyle("-fx-font-weight: bold;");
+        return label;
+    }
+
+    /** A label that wraps at {@code width} instead of stretching its container to the length of its text. */
+    private static Label wrappedLabel(String text, double width) {
+        final Label label = new Label(text);
+        label.setWrapText(true);
+        label.setMaxWidth(width);
         return label;
     }
 

@@ -119,8 +119,18 @@ public final class LetterbladeApp extends Application {
         // File association / "open with" hands the path as the first CLI argument (Windows/Linux).
         final List<String> args = getParameters().getRaw();
         if (!args.isEmpty()) {
-            view.openFile(new File(args.get(0)));
+            view.openFile(new File(unquoted(args.get(0))));
         }
+    }
+
+    /**
+     * A dev-run path can arrive in quotes: the javafx-maven-plugin groups a path with spaces by its quotes and keeps
+     * them on the way to the app (measured with 0.0.8 on macOS, where a bare path is split at its spaces instead). A
+     * real launcher never sends quotes, and a file name that starts and ends with one is not a case worth keeping.
+     */
+    static String unquoted(String arg) {
+        final boolean quoted = arg.length() >= 2 && arg.startsWith("\"") && arg.endsWith("\"");
+        return quoted ? arg.substring(1, arg.length() - 1) : arg;
     }
 
     /** Opens a file in a fresh window - used when the OS hands over several documents at once. */

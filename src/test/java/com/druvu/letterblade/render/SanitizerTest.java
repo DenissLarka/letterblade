@@ -55,6 +55,19 @@ public class SanitizerTest {
     }
 
     @Test
+    public void wordLayoutAttributesSurvive() {
+        // A Word newsletter centres its column with <div align=center> and top-aligns cells with valign; relaxed()
+        // alone drops both, which left every such column against the left edge.
+        final String out = cleanDefault("<div align=\"center\"><table width=\"600\"><tr>"
+                + "<td valign=\"top\" align=\"right\" onclick=\"x()\">x</td></tr></table></div>");
+        assertThat(out)
+                .contains("<div align=\"center\">")
+                .contains("valign=\"top\"")
+                .contains("align=\"right\"")
+                .doesNotContain("onclick");
+    }
+
+    @Test
     public void messageStylesheetSurvivesMinusFetchingRules() {
         final String out = cleanDefault(
                 "<html><head><style><!-- p.MsoNormal{margin:0;font-size:11pt}"
