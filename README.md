@@ -29,7 +29,7 @@ way it was meant to be read: formatting, inline images, attachments, the works.
   attachments and all.
 - **Copy that works.** Select all and copy give you clean text from the message itself.
 
-![Letterblade rendering an HTML newsletter with an inline image](docs/images/hero.png)
+![Letterblade rendering an HTML newsletter with an inline image](docs/images/hero.jpg)
 
 ## Private by default
 
