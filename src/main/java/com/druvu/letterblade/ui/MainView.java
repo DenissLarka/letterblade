@@ -12,6 +12,7 @@ import com.druvu.lib.fx.status.StatusBarModel;
 import com.druvu.lib.fx.util.FxThreads;
 import java.awt.Desktop;
 import java.io.File;
+import java.lang.module.ModuleDescriptor;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
@@ -43,6 +44,7 @@ import javafx.scene.control.TextArea;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToolBar;
 import javafx.scene.control.Tooltip;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.Dragboard;
@@ -85,6 +87,9 @@ public final class MainView {
 
     /** The link dialog's text width: a tracking address wraps to a few lines instead of stretching the window. */
     private static final double LINK_DIALOG_WIDTH = 440;
+
+    /** The app icon in the About box, in place of the generic information sign. */
+    private static final int ABOUT_ICON_SIZE = 64;
 
     private static final String DROP_HINT = "Drop a .msg file here or use Open";
     private static final String NO_BODY = "(no message body)";
@@ -680,13 +685,10 @@ public final class MainView {
      * The window's menus. {@code setUseSystemMenuBar(true)} moves them into the macOS screen menu bar and is a no-op
      * elsewhere, where they stay above the toolbar - so there is no platform branch to write here.
      *
-     * <p>There is deliberately no Help menu: macOS injects its own search field into any menu titled "Help", which read
-     * oddly beside a single item, and JavaFX cannot suppress that. About is not duplicated into File either - it
-     * belongs in the macOS application menu, and {@link DesktopHooks#onAbout} puts {@link #showAbout()} there. That
-     * hook is dormant in a {@code javafx:run} session - JavaFX's Glass builds a bare menu when the app is not a bundle
-     * - but live in the packaged app, where AWT builds the menu and About is present; measured against a shipped druvu
-     * bundle, see {@code DesktopHooks}. So About is reachable in the product but not while developing, which is the
-     * trade taken here rather than having it appear twice in the shipped app.
+     * <p>About sits in Help on every platform. On macOS it used to live in the application menu, put there by
+     * {@link DesktopHooks#onAbout}; since JavaFX 26 (JDK-8359108) JavaFX's Glass builds that menu whenever one of its
+     * windows is active, and AWT's About entry no longer appears. macOS adds its own search field to a menu titled
+     * "Help" - the standard look of every Mac app's Help menu.
      */
     private MenuBar buildMenuBar() {
         final MenuItem open = new MenuItem("Open…");
@@ -695,8 +697,10 @@ public final class MainView {
         final MenuItem close = new MenuItem("Close Window");
         close.setAccelerator(new KeyCodeCombination(KeyCode.W, KeyCombination.SHORTCUT_DOWN));
         close.setOnAction(event -> window().hide());
+        final MenuItem about = new MenuItem("About Letterblade");
+        about.setOnAction(event -> showAbout());
 
-        final MenuBar menuBar = new MenuBar(new Menu("File", null, open, close));
+        final MenuBar menuBar = new MenuBar(new Menu("File", null, open, close), new Menu("Help", null, about));
         menuBar.setUseSystemMenuBar(true);
         if (MAC) {
             // The menus are up in the screen menu bar, but the node stays in the scene graph - macOS only adopts a bar
@@ -709,17 +713,25 @@ public final class MainView {
     }
 
     /**
-     * The About box. Public because on macOS it is reached from the application menu, which
-     * {@link com.druvu.letterblade.LetterbladeApp} wires through {@link DesktopHooks#onAbout}.
+     * The About box, with the version the app was built as. Reached from Help; public because
+     * {@link com.druvu.letterblade.LetterbladeApp} also registers it for the macOS application menu, which shows it
+     * only before JavaFX 26.
      */
     public void showAbout() {
         FxThreads.requireFx();
         final Alert about = new Alert(Alert.AlertType.INFORMATION);
         about.initOwner(window());
         about.setTitle("About Letterblade");
-        about.setHeaderText("Letterblade");
+        about.setHeaderText(("Letterblade " + appVersion()).strip());
+        about.setGraphic(new ImageView(AppIcon.image(ABOUT_ICON_SIZE)));
         about.setContentText("A desktop viewer for Outlook .msg files - no Outlook required.\n\ndruvu.com");
         about.showAndWait();
+    }
+
+    /** The version the app module was built with; empty in a run from the class path, which has no module. */
+    private static String appVersion() {
+        final ModuleDescriptor descriptor = MainView.class.getModule().getDescriptor();
+        return descriptor == null ? "" : descriptor.rawVersion().orElse("");
     }
 
     private ToolBar buildToolbar() {

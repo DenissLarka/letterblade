@@ -3,6 +3,7 @@ package com.druvu.letterblade;
 import com.druvu.letterblade.msg.MsgService;
 import com.druvu.letterblade.msg.ParsedMessage;
 import com.druvu.letterblade.render.Sanitizer;
+import com.druvu.letterblade.ui.AppIcon;
 import com.druvu.letterblade.ui.MainView;
 import com.druvu.lib.fx.bus.FxBus;
 import com.druvu.lib.fx.exec.FxExec;
@@ -21,6 +22,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import javafx.application.Application;
 import javafx.scene.Scene;
+import javafx.scene.image.Image;
 import javafx.stage.Stage;
 
 /**
@@ -42,11 +44,12 @@ public final class LetterbladeApp extends Application {
     private final MsgService msgService = new MsgService();
     private final Sanitizer sanitizer = new Sanitizer();
     private final ThemeManager themeManager = new ThemeManager(prefs);
+    private final List<Image> windowIcons = AppIcon.images();
 
     private StatusBarModel statusBarModel;
     private MainView primaryView;
 
-    /** Set by {@link #start}; the desktop hooks are registered before any instance exists (see {@link #main}). */
+    /** Set by {@link #start}; the About hook is registered before any instance exists (see {@link #main}). */
     private static final AtomicReference<LetterbladeApp> RUNNING = new AtomicReference<>();
 
     public static void main(String[] args) {
@@ -55,24 +58,20 @@ public final class LetterbladeApp extends Application {
     }
 
     /**
-     * Wires the macOS application menu and Finder's open-file event. These handlers are process-global - the JDK keeps
-     * one per event, not a list - so they belong here rather than in {@link MainView}, which exists per window.
+     * Wires the macOS application menu. The handler is process-global - the JDK keeps one per event, not a list - so it
+     * belongs here rather than in {@link MainView}, which exists per window.
      *
-     * <p><b>Registered before {@code launch()}, and that ordering is load-bearing.</b> On macOS the application menu
-     * belongs to whoever builds it first: register here and AWT installs its About entry; register in {@code start()}
-     * and JavaFX's Glass has already built a bare Hide/Quit menu, after which the About item never appears even though
-     * registration reports success. Measured both ways on JavaFX 25 - see {@code DesktopHooks}.
+     * <p><b>Registered before {@code launch()}, and that ordering is load-bearing.</b> It brings AWT up before JavaFX,
+     * which makes AWT the receiver of the application events macOS sends - including the open-file event that
+     * {@link #start} subscribes to. Up to JavaFX 25 the same ordering also put AWT's About entry into the application
+     * menu; see {@code DesktopHooks}.
      *
-     * <p>Only About and open-file are registered. There is no Settings screen to open and nothing unsaved to protect on
-     * quit, so registering those would only add application-menu entries that do nothing.
+     * <p>There is no Settings screen to open and nothing unsaved to protect on quit, so those hooks are not registered.
      */
     private static void installDesktopHooks() {
-        // Registered for the day it works (and it costs nothing), but do NOT rely on it: measured on JavaFX 25, AWT's
-        // About entry never appears in a JavaFX app's application menu. The Help menu carries the reachable About.
+        // Shown only up to JavaFX 25: since JavaFX 26 (JDK-8359108) Glass builds the application menu and AWT's About
+        // entry no longer appears there. The Help menu carries the reachable About.
         DesktopHooks.onAbout(() -> onRunningApp(app -> app.primaryView.showAbout()));
-        // The macOS counterpart of the CLI argument in start(): Finder double-click, Dock drop, or "Open With". Note
-        // macOS only sends this to a real .app bundle, so it first becomes exercisable at the dist phase.
-        DesktopHooks.onOpenFiles(paths -> onRunningApp(app -> app.openFiles(paths)));
     }
 
     /** Runs an action against the started app, or drops it if the UI is not up yet. */
@@ -111,10 +110,15 @@ public final class LetterbladeApp extends Application {
         // Restore the window's saved position/size (and save it again when the app closes).
         WindowGeometry.install(stage, prefs);
 
-        // The hooks were registered in main(); hand them a live app to talk to.
+        // The About hook was registered in main(); hand it a live app to talk to.
         this.primaryView = view;
         RUNNING.set(this);
         stage.show();
+
+        // Finder double-click, Dock drop or "Open With" (macOS sends these only to a .app bundle). Subscribed once a
+        // window exists: AWT holds an event that arrived during launch until a handler is in place, so the document
+        // that launched the app arrives here too, instead of reaching an app with no window to show it in.
+        DesktopHooks.onOpenFiles(this::openFiles);
 
         // File association / "open with" hands the path as the first CLI argument (Windows/Linux).
         final List<String> args = getParameters().getRaw();
@@ -147,9 +151,11 @@ public final class LetterbladeApp extends Application {
     /**
      * Builds a viewer wired to the shared collaborators, its title bound to {@code stage} and able to spawn siblings.
      * Each window gets its own {@link Notifications} bound to its own stage - so toasts anchor to the window that
-     * produced them - and it is closed when the window hides.
+     * produced them - and it is closed when the window hides. Every window passes through here, so this is also where
+     * it gets the app icon.
      */
     private MainView newView(Stage stage) {
+        stage.getIcons().setAll(windowIcons);
         final Notifications windowNotifications = new Notifications(stage);
         stage.setOnHidden(event -> windowNotifications.close());
         return new MainView(
