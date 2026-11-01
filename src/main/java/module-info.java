@@ -12,9 +12,7 @@ module com.druvu.letterblade {
     requires org.simplejavamail.outlookmessageparser;
     requires org.jsoup;
 
-    // javafx.graphics reflectively instantiates the Application subclass;
-    // the dist Launcher (letterblade-dist repo) calls LetterbladeApp.main directly.
+    // javafx.graphics reflectively instantiates the Application subclass.
     exports com.druvu.letterblade to
-            javafx.graphics,
-            com.druvu.letterblade.dist;
+            javafx.graphics;
 }

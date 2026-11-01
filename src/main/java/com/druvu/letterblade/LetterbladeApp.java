@@ -8,12 +8,15 @@ import com.druvu.letterblade.ui.MainView;
 import com.druvu.lib.fx.bus.FxBus;
 import com.druvu.lib.fx.exec.FxExec;
 import com.druvu.lib.fx.notify.Notifications;
+import com.druvu.lib.fx.os.AppLogs;
 import com.druvu.lib.fx.os.DesktopHooks;
 import com.druvu.lib.fx.prefs.AppHome;
 import com.druvu.lib.fx.prefs.Prefs;
 import com.druvu.lib.fx.prefs.WindowGeometry;
 import com.druvu.lib.fx.status.StatusBarModel;
 import com.druvu.lib.fx.theme.ThemeManager;
+import com.druvu.lib.fx.update.Updates;
+import com.druvu.lib.fx.updater.github.GitHubReleases;
 import com.druvu.lib.fx.util.FxThreads;
 import java.io.File;
 import java.nio.file.Path;
@@ -47,12 +50,16 @@ public final class LetterbladeApp extends Application {
     private final List<Image> windowIcons = AppIcon.images();
 
     private StatusBarModel statusBarModel;
+    private Updates updates;
     private MainView primaryView;
 
     /** Set by {@link #start}; the About hook is registered before any instance exists (see {@link #main}). */
     private static final AtomicReference<LetterbladeApp> RUNNING = new AtomicReference<>();
 
     public static void main(String[] args) {
+        // First, before anything logs: one line per record on the JDK backend. An installed copy has no console, so
+        // its output, the updater's lines included, goes to ~/.druvu.com/letterblade/logs.
+        AppLogs.setUp(AppHome.of("letterblade"));
         installDesktopHooks();
         launch(args);
     }
@@ -100,6 +107,7 @@ public final class LetterbladeApp extends Application {
         // the toolkit's "created before any theme was applied" warning was reporting at each launch.
         themeManager.applyStored();
         statusBarModel = new StatusBarModel(bus);
+        updates = buildUpdates(stage);
 
         final MainView view = newView(stage);
         final Scene scene = new Scene(view.node(), 900, 640);
@@ -114,6 +122,8 @@ public final class LetterbladeApp extends Application {
         this.primaryView = view;
         RUNNING.set(this);
         stage.show();
+        // Quiet unless a newer release is there to offer; a development run is not an installed copy and skips it.
+        updates.checkAtStart();
 
         // Finder double-click, Dock drop or "Open With" (macOS sends these only to a .app bundle). Subscribed once a
         // window exists: AWT holds an event that arrived during launch until a handler is in place, so the document
@@ -125,6 +135,22 @@ public final class LetterbladeApp extends Application {
         if (!args.isEmpty()) {
             view.openFile(new File(unquoted(args.get(0))));
         }
+    }
+
+    /**
+     * Self-update from this repository's releases: the offer, the download in the status strip, the SHA-256 check, the
+     * install and the restart, all through the kit. Built before the first window so every Help menu can carry the
+     * "Check for Updates..." item; the dialogs belong to the primary stage.
+     */
+    private Updates buildUpdates(Stage stage) {
+        return Updates.builder()
+                .appName("Letterblade")
+                .app(LetterbladeApp.class)
+                .source(GitHubReleases.of("DenissLarka", "letterblade"))
+                .owner(stage)
+                .prefs(prefs)
+                .exec(exec)
+                .build();
     }
 
     /**
@@ -164,6 +190,7 @@ public final class LetterbladeApp extends Application {
                 sanitizer,
                 windowNotifications,
                 statusBarModel,
+                updates,
                 home,
                 stage::setTitle,
                 this::openInNewWindow);

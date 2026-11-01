@@ -9,6 +9,7 @@ import com.druvu.lib.fx.notify.Notifications;
 import com.druvu.lib.fx.os.DesktopHooks;
 import com.druvu.lib.fx.prefs.AppHome;
 import com.druvu.lib.fx.status.StatusBarModel;
+import com.druvu.lib.fx.update.Updates;
 import com.druvu.lib.fx.util.FxThreads;
 import java.awt.Desktop;
 import java.io.File;
@@ -39,6 +40,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.ProgressBar;
 import javafx.scene.control.Separator;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.ToggleButton;
@@ -154,6 +156,7 @@ public final class MainView {
     private final StackPane bodyStack = new StackPane(webView, textArea, placeholder);
 
     private final EmojiImages emojiImages = new EmojiImages();
+    private final Updates updates;
 
     private ParsedMessage currentMessage;
     private Sanitizer.Mode sanitizeMode = Sanitizer.Mode.DEFAULT;
@@ -164,10 +167,12 @@ public final class MainView {
             Sanitizer sanitizer,
             Notifications notifications,
             StatusBarModel statusBarModel,
+            Updates updates,
             AppHome appHome,
             Consumer<String> titleUpdater,
             Consumer<ParsedMessage> childWindowOpener) {
         this.exec = Objects.requireNonNull(exec, "exec");
+        this.updates = Objects.requireNonNull(updates, "updates");
         this.msgService = Objects.requireNonNull(msgService, "msgService");
         this.sanitizer = Objects.requireNonNull(sanitizer, "sanitizer");
         this.notifications = Objects.requireNonNull(notifications, "notifications");
@@ -699,8 +704,11 @@ public final class MainView {
         close.setOnAction(event -> window().hide());
         final MenuItem about = new MenuItem("About Letterblade");
         about.setOnAction(event -> showAbout());
+        // The user's own check: reports "up to date" and failures too; in a dev run it says updates are unavailable.
+        final MenuItem checkForUpdates = updates.checkForUpdatesMenuItem();
 
-        final MenuBar menuBar = new MenuBar(new Menu("File", null, open, close), new Menu("Help", null, about));
+        final MenuBar menuBar =
+                new MenuBar(new Menu("File", null, open, close), new Menu("Help", null, checkForUpdates, about));
         menuBar.setUseSystemMenuBar(true);
         if (MAC) {
             // The menus are up in the screen menu bar, but the node stays in the scene graph - macOS only adopts a bar
@@ -824,8 +832,13 @@ public final class MainView {
         tasksLabel.textProperty().bind(statusBarModel.runningTasksProperty().asString("tasks: %d"));
         final Label messageLabel = new Label();
         messageLabel.textProperty().bind(statusBarModel.messageProperty());
+        // A task that reports progress (the update download) shows here; the bar hides while none does.
+        final ProgressBar progressBar = new ProgressBar();
+        progressBar.progressProperty().bind(statusBarModel.progressProperty());
+        progressBar.visibleProperty().bind(statusBarModel.progressingProperty());
+        progressBar.managedProperty().bind(progressBar.visibleProperty());
 
-        final HBox strip = new HBox(16, tasksLabel, new Separator(Orientation.VERTICAL), messageLabel);
+        final HBox strip = new HBox(16, tasksLabel, new Separator(Orientation.VERTICAL), messageLabel, progressBar);
         strip.setPadding(new Insets(4, 8, 4, 8));
         strip.setAlignment(Pos.CENTER_LEFT);
         return strip;

@@ -5,7 +5,7 @@
 
 	<groupId>com.druvu</groupId>
 	<artifactId>letterblade</artifactId>
-	<version>1.1.2-SNAPSHOT</version>
+	<version>1.2.0-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
 	<name>DRUVU.COM / LETTERBLADE</name>
@@ -37,10 +37,11 @@
 
 		<!-- application dependencies -->
 		<!-- A released kit -->
-		<druvu-lib-fx.version>2.0.0</druvu-lib-fx.version>
+		<druvu-lib-fx.version>2.1.0-SNAPSHOT</druvu-lib-fx.version>
 		<outlook-message-parser.version>1.16.2</outlook-message-parser.version>
 		<jsoup.version>1.23.2</jsoup.version>
 		<slf4j.version>2.0.20</slf4j.version>
+		<log4j.version>2.26.1</log4j.version>
 
 		<!-- test -->
 		<testng.version>7.12.0</testng.version>
@@ -83,6 +84,15 @@
 			<groupId>org.simplejavamail</groupId>
 			<artifactId>outlook-message-parser</artifactId>
 			<version>${outlook-message-parser.version}</version>
+			<exclusions>
+				<!-- The parser logs through SLF4J and brings an older slf4j-api; excluded so that the JDK binding below
+				     brings the API at its own version, in this build and in the dist's (a managed version here would
+				     not reach a consumer's resolution). -->
+				<exclusion>
+					<groupId>org.slf4j</groupId>
+					<artifactId>slf4j-api</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 
 		<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
@@ -95,18 +105,20 @@
 		</dependency>
 
 		<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
-		<!-- LOG - api at compile (lib-fx requires org.slf4j, provided/non-transitive), simple
-		     binding at runtime. Mirrors druvu-lib-fx-example. -->
+		<!-- LOG - the app, the kit and the updater log through System.Logger on the JDK backend, which AppLogs sets up
+		     in main. The two bridges route what the dependencies log through SLF4J (the message parser) and the Log4j
+		     API (POI) into the same backend. -->
 		<!--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
 		<dependency>
 			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-api</artifactId>
+			<artifactId>slf4j-jdk14</artifactId>
 			<version>${slf4j.version}</version>
+			<scope>runtime</scope>
 		</dependency>
 		<dependency>
-			<groupId>org.slf4j</groupId>
-			<artifactId>slf4j-simple</artifactId>
-			<version>${slf4j.version}</version>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-to-jul</artifactId>
+			<version>${log4j.version}</version>
 			<scope>runtime</scope>
 		</dependency>
 
@@ -131,8 +143,8 @@
 			<version>${assertj.version}</version>
 			<scope>test</scope>
 		</dependency>
-		<!-- slf4j-simple is declared once at runtime scope above; runtime deps are on the test
-		     classpath too, so tests get a logging binding without a second declaration. -->
+		<!-- The two bridges above are runtime scope; runtime deps are on the test class path too, so tests get the
+		     same backend without a second declaration. -->
 	</dependencies>
 
 	<build>

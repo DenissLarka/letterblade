@@ -10,10 +10,16 @@ import com.druvu.lib.fx.bus.FxBus;
 import com.druvu.lib.fx.exec.FxExec;
 import com.druvu.lib.fx.notify.Notifications;
 import com.druvu.lib.fx.prefs.AppHome;
+import com.druvu.lib.fx.prefs.Prefs;
 import com.druvu.lib.fx.status.StatusBarModel;
 import com.druvu.lib.fx.theme.FxTheme;
 import com.druvu.lib.fx.theme.ThemeManager;
+import com.druvu.lib.fx.update.Updates;
+import com.druvu.lib.fx.updater.github.GitHubReleases;
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -294,17 +300,36 @@ public class MainViewTest {
     private MainView newView() {
         FxBus bus = new FxBus();
         FxExec exec = new FxExec(bus);
+        Stage stage = new Stage();
         MainView view = new MainView(
                 exec,
                 service,
                 new Sanitizer(),
-                new Notifications(new Stage()),
+                new Notifications(stage),
                 new StatusBarModel(bus),
+                updates(stage, exec),
                 AppHome.of("letterblade"),
                 s -> {},
                 m -> {});
         new Scene(view.node()); // attach to a scene so #id lookups resolve; no window is shown
         return view;
+    }
+
+    /** Updates as the view sees them; a test run is not an installed copy, so they are unavailable and never check. */
+    private static Updates updates(Stage stage, FxExec exec) {
+        try {
+            return Updates.builder()
+                    .appName("Letterblade")
+                    .app(MainViewTest.class)
+                    .source(GitHubReleases.of("DenissLarka", "letterblade"))
+                    .owner(stage)
+                    .prefs(new Prefs(
+                            Files.createTempDirectory("letterblade-test").resolve("preferences.properties")))
+                    .exec(exec)
+                    .build();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private static FlowPane chipRow(MainView view) {
