@@ -39,7 +39,7 @@
 		<!-- A released kit -->
 		<druvu-lib-fx.version>2.1.0</druvu-lib-fx.version>
 		<outlook-message-parser.version>1.16.2</outlook-message-parser.version>
-		<jsoup.version>1.23.2</jsoup.version>
+		<jsoup.version>1.24.1</jsoup.version>
 		<slf4j.version>2.0.20</slf4j.version>
 		<log4j.version>2.26.1</log4j.version>
 
