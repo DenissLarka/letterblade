@@ -31,10 +31,6 @@
 
 		<java.version>27</java.version>
 
-		<!-- Spotless (palantir) is OFF while the build runs on JDK 27
-		     https://github.com/palantir/palantir-java-format/issues/1785 -->
-		<spotless.check.skip>true</spotless.check.skip>
-
 		<!-- application dependencies -->
 		<!-- A released kit -->
 		<druvu-lib-fx.version>2.1.0</druvu-lib-fx.version>
@@ -52,8 +48,9 @@
 		<maven-surefire-plugin.version>3.6.1</maven-surefire-plugin.version>
 		<maven-pmd-plugin.version>3.28.0</maven-pmd-plugin.version>
 		<spotbugs-maven-plugin.version>4.10.5.0</spotbugs-maven-plugin.version>
-		<spotless-maven-plugin.version>3.11.0</spotless-maven-plugin.version>
-		<palantir-java-format.version>2.90.0</palantir-java-format.version>
+		<spotless-maven-plugin.version>3.12.0</spotless-maven-plugin.version>
+		<!-- the palantir-java-format fork that runs on JDK 27: https://github.com/openjavaformat/open-java-format -->
+		<open-java-format.version>21.0.2</open-java-format.version>
 		<javafx-maven-plugin.version>0.0.8</javafx-maven-plugin.version>
 		<asm.version>9.11.1</asm.version>
 	</properties>
@@ -254,7 +251,8 @@
 				<configuration>
 					<java>
 						<palantirJavaFormat>
-							<version>${palantir-java-format.version}</version>
+							<groupArtifact>dev.openjavaformat:open-java-format</groupArtifact>
+							<version>${open-java-format.version}</version>
 							<style>PALANTIR</style>
 							<formatJavadoc>true</formatJavadoc>
 						</palantirJavaFormat>
