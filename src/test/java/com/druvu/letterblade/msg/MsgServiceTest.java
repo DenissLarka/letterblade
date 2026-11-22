@@ -107,6 +107,18 @@ public class MsgServiceTest {
         assertThat(m.embeddedMessages()).isEmpty();
     }
 
+    /** The chips must not reorder between two openings of the same file: the attachments come in the file's order. */
+    @Test
+    public void attachmentsKeepTheFileOrderOnEveryParse() throws Exception {
+        File newsletter = fixture("sailing-club-newsletter.msg");
+        // One parse could match the file order by chance; twenty in a row cannot.
+        for (int parse = 0; parse < 20; parse++) {
+            assertThat(service.parse(newsletter).attachments())
+                    .extracting(OutlookFileAttachment::getLongFilename)
+                    .containsExactly("autumn-programme-2026.pdf", "autumn-regatta.ics");
+        }
+    }
+
     @Test
     public void corruptFileThrowsCheckedException() throws Exception {
         Path notMsg = Files.createTempFile("letterblade-corrupt", ".msg");

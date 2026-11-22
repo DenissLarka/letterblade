@@ -3,10 +3,13 @@ package com.druvu.letterblade.msg;
 import java.io.File;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import org.jsoup.Jsoup;
 import org.simplejavamail.outlookmessageparser.OutlookMessageParser;
+import org.simplejavamail.outlookmessageparser.model.OutlookFileAttachment;
 import org.simplejavamail.outlookmessageparser.model.OutlookMessage;
 import org.simplejavamail.outlookmessageparser.model.OutlookMsgAttachment;
 
@@ -54,6 +57,7 @@ public final class MsgService {
     /** Maps a parser {@link OutlookMessage} - whether top-level or nested - to the immutable {@link ParsedMessage}. */
     private static ParsedMessage map(OutlookMessage msg) {
         final BodyView body = deriveBody(msg.getBodyHTML(), msg.getConvertedBodyHTML(), msg.getBodyText());
+        final Map<String, OutlookFileAttachment> cidMap = msg.fetchCIDMap();
 
         final List<OutlookMsgAttachment> embedded = msg.getOutlookAttachments().stream()
                 .filter(OutlookMsgAttachment.class::isInstance)
@@ -70,9 +74,23 @@ public final class MsgService {
                 body.bodyHtml(),
                 body.plainText(),
                 body.branch(),
-                msg.fetchTrueAttachments(),
+                fileAttachments(msg, cidMap.values()),
                 embedded,
-                msg.fetchCIDMap());
+                cidMap);
+    }
+
+    /**
+     * The file attachments that are not inline images, in the order the file stores them. Replaces the parser's
+     * {@code fetchTrueAttachments()}, which collects them in a {@code HashSet} of identity-hashed objects, so its order
+     * changed from one opening of the same file to the next.
+     */
+    private static List<OutlookFileAttachment> fileAttachments(
+            OutlookMessage msg, Collection<OutlookFileAttachment> inline) {
+        return msg.getOutlookAttachments().stream()
+                .filter(OutlookFileAttachment.class::isInstance)
+                .map(OutlookFileAttachment.class::cast)
+                .filter(attachment -> !inline.contains(attachment))
+                .toList();
     }
 
     /**
