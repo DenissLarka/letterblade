@@ -53,15 +53,22 @@ public final class LetterbladeApp extends Application {
     private Updates updates;
     private MainView primaryView;
 
-    /** Set by {@link #start}; the About hook is registered before any instance exists (see {@link #main}). */
+    /**
+     * Set by {@link #start}; the About hook is registered before any instance exists (see
+     * {@link #launchWithDesktopHooks}).
+     */
     private static final AtomicReference<LetterbladeApp> RUNNING = new AtomicReference<>();
 
-    public static void main(String[] args) {
+    /**
+     * Starts the app from {@link Main}. This class has no {@code main} of its own on purpose: the Java launcher would
+     * start JavaFX before it, and the desktop hooks below must come first (see {@link Main}).
+     */
+    static void launchWithDesktopHooks(String[] args) {
         // First, before anything logs: one line per record on the JDK backend. An installed copy has no console, so
         // its output, the updater's lines included, goes to ~/.druvu.com/letterblade/logs.
         AppLogs.setUp(AppHome.of("letterblade"));
         installDesktopHooks();
-        launch(args);
+        launch(LetterbladeApp.class, args);
     }
 
     /**
