@@ -9,9 +9,17 @@
 [![Download for macOS](https://img.shields.io/badge/Download_for_macOS-.dmg-000000?logo=apple&logoColor=white)](https://github.com/DenissLarka/letterblade/releases/latest/download/Letterblade.dmg)
 [![Download for Windows](https://img.shields.io/badge/Download_for_Windows-.msix-0078D4?logo=windows&logoColor=white)](https://github.com/DenissLarka/letterblade/releases/latest/download/Letterblade.msix)
 [![Download for Linux](https://img.shields.io/badge/Download_for_Linux-.AppImage-FCC624?logo=linux&logoColor=black)](https://github.com/DenissLarka/letterblade/releases/latest/download/Letterblade.AppImage)
-[![All downloads](https://img.shields.io/badge/druvu.com-downloads-4147d5)](https://druvu.com/downloads/letterblade.html)
 
-Available on all three desktop platforms.
+## Install
+
+Pick your download above. Nothing else to install: the Java runtime is bundled, and an installed
+copy updates itself.
+
+- **Windows 10 / 11 (x64).** The installer is signed. Windows may still show "Windows protected
+  your PC" for a publisher it has not seen often: click **More info**, then **Run anyway**.
+- **macOS 12 or later, on Apple Silicon.** There is no Intel build.
+- **Linux (x86_64).** Make the file executable first: `chmod +x Letterblade.AppImage`. It needs
+  FUSE, as any AppImage does.
 
 ## What you get
 
